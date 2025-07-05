@@ -6,6 +6,8 @@ You play with (or against) 1 to 3 AI players. Each AI mimics a human player with
 
 The goal: correctly align rabbits and hats from 1 to 9 — before the timer runs out!
 
+<img width="895" alt="Screenshot 2025-07-05 at 16 49 14" src="https://github.com/user-attachments/assets/4e9932e7-ede2-4dc8-a709-891b4d41032a" />
+
 ---
 
 ## Gameplay Rules
