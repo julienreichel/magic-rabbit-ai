@@ -115,3 +115,25 @@ body {
   display: flex;
   gap: 8px;
 }
+#instructionsBox {
+  margin: 16px auto 0 auto;
+  max-width: 600px;
+  padding: 12px 18px;
+  background: #f8f8ff;
+  border-radius: 10px;
+  border: 1px solid #ccc;
+  font-size: 1.08em;
+  box-shadow: 0 2px 8px #0001;
+  position: relative;
+}
+#hideInstructionsBtn {
+  position: absolute;
+  top: 8px;
+  right: 12px;
+  font-size: 0.9em;
+}
+.instructions-list {
+  margin: 8px 0 0 0;
+  padding-left: 18px;
+  font-size: 1em;
+}

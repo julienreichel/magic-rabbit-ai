@@ -36,6 +36,12 @@ function init() {
   updateTurn();
   humanStart = Date.now();
   startTimer();
+  // Show or hide instructions based on whose turn it is at game start
+  if (players[currentTurn] === "H") {
+    updateInstructions("play");
+  } else {
+    updateInstructions("");
+  }
 }
 
 // === Rendering ===
@@ -77,6 +83,8 @@ let selHat = null,
   selRab = null,
   selDove = null,
   doveTimer;
+let hasPlayed = false;
+
 
 function humanHat(idx, dom) {
   if (lock || players[currentTurn] !== "H") return;
@@ -84,6 +92,7 @@ function humanHat(idx, dom) {
     moveDoveTo(idx);
     return;
   }
+  if (hasPlayed) return; // Prevent more than one move
   if (selHat === null) {
     selHat = idx;
     dom.classList.add("highlight");
@@ -91,11 +100,13 @@ function humanHat(idx, dom) {
   }
   if (selHat !== idx) {
     game.swapHats(selHat, idx);
+    hasPlayed = true;
     render();
     lock = true;
     flash([piece(selHat, ".hat"), piece(idx, ".hat")], () => {
       lock = false;
-      endTurn();
+      updateInstructions("dove"); // Show dove instructions after hat swap
+      // Don't end turn here, wait for dove
     });
   }
   document
@@ -110,6 +121,7 @@ function humanRabbit(idx, dom) {
     moveDoveTo(idx);
     return;
   }
+  if (hasPlayed) return; // Prevent more than one move
   if (selRab === null) {
     selRab = idx;
     dom.classList.add("highlight");
@@ -117,6 +129,7 @@ function humanRabbit(idx, dom) {
   }
   if (selRab !== idx) {
     game.swapPiles(selRab, idx);
+    hasPlayed = true;
     render();
     lock = true;
     flash(
@@ -128,7 +141,8 @@ function humanRabbit(idx, dom) {
       ],
       () => {
         lock = false;
-        endTurn();
+        updateInstructions("dove"); // Show dove instructions after rabbit swap
+        // Don't end turn here, wait for dove
       }
     );
   }
@@ -139,12 +153,20 @@ function humanRabbit(idx, dom) {
 }
 
 function reveal(el) {
+  if (lock || players[currentTurn] !== "H") return;
+  if (selDove !== null) return;
+  if (hasPlayed) return;
   el.classList.add("revealed");
-  setTimeout(() => el.classList.remove("revealed"), 1000);
+  hasPlayed = true;
+  updateInstructions("dove"); // Show dove instructions immediately after peek
+  setTimeout(() => {
+    el.classList.remove("revealed");
+    // Wait for dove
+  }, 1000);
 }
-
 function humanDove(idx, dom) {
   if (lock || players[currentTurn] !== "H") return;
+  if (!hasPlayed) return; // Only allow dove after a move
   if (selDove === null) {
     selDove = idx;
     dom.classList.add("highlight");
@@ -152,14 +174,22 @@ function humanDove(idx, dom) {
       cancelDove();
       endTurn();
     }, 5000);
-  } else if (selDove === idx) {
+    return;
+  }
+  // If clicking the same dove again, pass
+  if (selDove === idx) {
     cancelDove();
     endTurn();
+    return;
   }
+  // If clicking a rabbit or hat after dove is selected, move the dove
+  moveDoveTo(idx);
 }
+
 
 function moveDoveTo(target) {
   if (game.piles[target].hasDove) return;
+  if (!hasPlayed) return;
   game.moveDove(selDove, target);
   cancelDove();
   render();
@@ -220,20 +250,25 @@ function endTurn() {
   }
   selHat = selRab = null;
   cancelDove();
+  hasPlayed = false;
   currentTurn = (currentTurn + 1) % players.length;
   updateTurn();
+  // Show or hide instructions based on whose turn it is
   if (players[currentTurn] === "H") {
+    updateInstructions("play");
     humanStart = Date.now();
   } else {
+    updateInstructions("");
     setTimeout(aiTurn, avgHuman());
   }
 }
 
 function updateTurn() {
-  turnInfo.textContent =
-    players[currentTurn] === "H"
-      ? "Your turn"
-      : `AI ${players[currentTurn].id}`;
+  if (players[currentTurn] === "H") {
+    turnInfo.textContent = "Your turn";
+  } else {
+    turnInfo.textContent = `AI ${players[currentTurn].id}`;
+  }
 }
 
 // === Timer & win ===
@@ -256,6 +291,38 @@ function checkWin() {
     (p, i) => p.rabbitNum === i + 1 && p.hatNum === i + 1
   );
 }
+
+// === Instructions box ===
+const instructionsBox = $("#instructionsBox");
+const hideBtn = $("#hideInstructionsBtn");
+const instructionsContent = $("#instructionsContent");
+hideBtn.onclick = () => {
+  instructionsBox.style.display = "none";
+};
+
+function updateInstructions(state) {
+  if (players[currentTurn] !== "H") {
+    instructionsBox.style.display = "none";
+    return;
+  }
+  instructionsBox.style.display = "block";
+  if (state === "play") {
+    instructionsContent.innerHTML = `<b>Your turn!</b><br>
+      <ul class="instructions-list">
+        <li>To <b>peek</b> at a rabbit, click it <b>three times</b> quickly.</li>
+        <li>To <b>swap columns</b>, click a rabbit, then another rabbit in a different column.</li>
+        <li>To <b>swap hats</b>, click a hat, then another hat.</li>
+      </ul>`;
+  } else if (state === "dove") {
+    instructionsContent.innerHTML = `<b>Dove phase</b><br>
+      <ul class="instructions-list">
+        <li>Either <b>click the dove twice</b> to indicate no move, or <b>move the dove</b> by clicking it and then the target column.</li>
+      </ul>`;
+  } else {
+    instructionsContent.innerHTML = "";
+  }
+}
+
 // === Event bindings ===
 document.querySelector("#resetBtn").onclick = init;
 document.querySelector("#playAgainBtn").onclick = init;
