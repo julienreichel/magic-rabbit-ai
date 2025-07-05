@@ -271,7 +271,10 @@ function endTurn() {
     humanStart = Date.now();
   } else {
     updateInstructions("");
-    setTimeout(aiTurn, avgHuman());
+    // Only let AI play if the game is not over
+    if (!checkWin()) {
+      setTimeout(aiTurn, avgHuman());
+    }
   }
 }
 
