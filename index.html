@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Magic Rabbit – Turn‑Based</title>
+    <link rel="stylesheet" href="./style.css" />
+  </head>
+  <body>
+    <h1>Magic Rabbit – Turn&nbsp;Based</h1>
+
+    <div id="legend" class="row"></div>
+    <div id="timer"></div>
+    <div id="turnInfo"></div>
+    <div id="board"></div>
+    <button id="resetBtn">Reset Game</button>
+
+    <div id="winOverlay" class="overlay hidden">
+      <div class="wand">🪄</div>
+      <h2>Congratulations! Trick completed!</h2>
+      <button id="playAgainBtn">Play Again</button>
+    </div>
+
+    <script type="module" src="./src/main.js"></script>
+  </body>
+</html>
