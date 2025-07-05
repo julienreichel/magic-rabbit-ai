@@ -105,7 +105,8 @@ function humanHat(idx, dom) {
     lock = true;
     flash([piece(selHat, ".hat"), piece(idx, ".hat")], () => {
       lock = false;
-      updateInstructions("dove"); // Show dove instructions after hat swap
+      updateInstructions("dove");
+      startDoveAutoPass();
       // Don't end turn here, wait for dove
     });
   }
@@ -141,7 +142,8 @@ function humanRabbit(idx, dom) {
       ],
       () => {
         lock = false;
-        updateInstructions("dove"); // Show dove instructions after rabbit swap
+        updateInstructions("dove");
+        startDoveAutoPass();
         // Don't end turn here, wait for dove
       }
     );
@@ -158,7 +160,8 @@ function reveal(el) {
   if (hasPlayed) return;
   el.classList.add("revealed");
   hasPlayed = true;
-  updateInstructions("dove"); // Show dove instructions immediately after peek
+  updateInstructions("dove");
+  startDoveAutoPass();
   setTimeout(() => {
     el.classList.remove("revealed");
     // Wait for dove
@@ -194,6 +197,15 @@ function moveDoveTo(target) {
   cancelDove();
   render();
   endTurn();
+}
+
+function startDoveAutoPass() {
+  clearTimeout(doveTimer);
+  doveTimer = setTimeout(() => {
+    if (players[currentTurn] === "H" && selDove === null) {
+      endTurn();
+    }
+  }, 3000);
 }
 
 function cancelDove() {
