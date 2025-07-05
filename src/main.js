@@ -296,11 +296,17 @@ function checkWin() {
 const instructionsBox = $("#instructionsBox");
 const hideBtn = $("#hideInstructionsBtn");
 const instructionsContent = $("#instructionsContent");
+let instructionsPermanentlyHidden = false;
 hideBtn.onclick = () => {
   instructionsBox.style.display = "none";
+  instructionsPermanentlyHidden = true;
 };
 
 function updateInstructions(state) {
+  if (instructionsPermanentlyHidden) {
+    instructionsBox.style.display = "none";
+    return;
+  }
   if (players[currentTurn] !== "H") {
     instructionsBox.style.display = "none";
     return;
