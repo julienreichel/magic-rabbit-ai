@@ -2,7 +2,9 @@
 
 This is an implementation of the cooperative logic game **Magic Rabbit**, built using **Vite** and plain JavaScript.
 
-You play with (or against) 1 to 3 AI players. Each AI mimics a human player with **limited memory**, restricted to only one remembered rabbit at a time. The goal: correctly align rabbits and hats from 1 to 9 — before the timer runs out!
+You play with (or against) 1 to 3 AI players. Each AI mimics a human player with **limited memory**, restricted to only one remembered rabbit at a time. 
+
+The goal: correctly align rabbits and hats from 1 to 9 — before the timer runs out!
 
 ---
 
