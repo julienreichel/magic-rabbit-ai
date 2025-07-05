@@ -327,7 +327,7 @@ function updateInstructions(state) {
   if (state === "play") {
     instructionsContent.innerHTML = `<b>Your turn!</b><br>
       <ul class="instructions-list">
-        <li>To <b>peek</b> at a rabbit, click it <b>three times</b> quickly.</li>
+        <li>To <b>peek</b> at a rabbit, click it <b>twice</b> quickly.</li>
         <li>To <b>swap columns</b>, click a rabbit, then another rabbit in a different column.</li>
         <li>To <b>swap hats</b>, click a hat, then another hat.</li>
       </ul>`;
