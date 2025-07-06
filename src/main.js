@@ -16,6 +16,7 @@ let game,
 let humanStart = 0,
   totalHuman = 0,
   humanTurns = 0;
+let turnHistory = []; // Track all actions for AI
 const avgHuman = () =>
   humanTurns
     ? Math.max(400, Math.min(5000, Math.floor(totalHuman / humanTurns)))
@@ -25,6 +26,7 @@ const avgHuman = () =>
 function init() {
   winEl.classList.add("hidden");
   game = new Game();
+  turnHistory = []; // Reset turn history on new game
   const aiCnt = Math.min(
     3,
     Math.max(1, parseInt(prompt("AI players (1-3)", "2")) || 1)
@@ -100,6 +102,7 @@ function humanHat(idx, dom) {
   }
   if (selHat !== idx) {
     game.swapHats(selHat, idx);
+    turnHistory.push({ player: "H", action: { type: "swapHat", i1: selHat, i2: idx } });
     hasPlayed = true;
     render();
     lock = true;
@@ -130,6 +133,7 @@ function humanRabbit(idx, dom) {
   }
   if (selRab !== idx) {
     game.swapPiles(selRab, idx);
+    turnHistory.push({ player: "H", action: { type: "swapPile", i1: selRab, i2: idx } });
     hasPlayed = true;
     render();
     lock = true;
@@ -159,6 +163,7 @@ function reveal(el) {
   if (selDove !== null) return;
   if (hasPlayed) return;
   el.classList.add("revealed");
+  turnHistory.push({ player: "H", action: { type: "peek", i1: Array.from(board.children).findIndex(pile => pile.querySelector(".rabbit") === el) } });
   hasPlayed = true;
   updateInstructions("dove");
   startDoveAutoPass();
@@ -194,6 +199,7 @@ function moveDoveTo(target) {
   if (game.piles[target].hasDove) return;
   if (!hasPlayed) return;
   game.moveDove(selDove, target);
+  turnHistory.push({ player: players[currentTurn] === "H" ? "H" : players[currentTurn].id, action: { type: "moveDove", from: selDove, to: target } });
   cancelDove();
   render();
   endTurn();
@@ -220,7 +226,9 @@ function cancelDove() {
 // === AI turn ===
 function aiTurn() {
   const ai = players[currentTurn];
-  const res = ai.takeAction(game);
+  // Only give AI the last 5 moves for memory
+  const shortHistory = turnHistory.slice(-5);
+  const res = ai.takeAction(game, shortHistory); // Pass shortHistory to AI
   render();
   const flashes = [];
   if (res.type === "peek") flashes.push(piece(res.i1, ".rabbit"));
@@ -233,9 +241,18 @@ function aiTurn() {
       piece(res.i2, ".hat"),
       piece(res.i2, ".rabbit")
     );
+  // Record AI action in turnHistory
+  if (res.type === "peek" || res.type === "swapHat" || res.type === "swapPile") {
+    turnHistory.push({ player: ai.id, action: { ...res } });
+  }
   lock = true;
   flash(flashes, () => {
     ai.moveDove(game);
+    // Record dove move if any
+    if (game.lastDoveMove) {
+      turnHistory.push({ player: ai.id, action: { type: "moveDove", ...game.lastDoveMove } });
+      game.lastDoveMove = null;
+    }
     render();
     lock = false;
     endTurn();

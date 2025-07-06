@@ -5,82 +5,113 @@ export class VirtualPlayer {
     this.total = total;
     this.memIdx = -1;
     this.memVal = null;
-    const span = Math.floor(9 / total);
-    this.zoneStart = (id - 1) * span;
-    this.zoneEnd = id === total ? 8 : this.zoneStart + span - 1;
+    this.lastPeek = null; // {idx, val}
+    this.history = [];
+    this.round = 0; // Track number of turns taken by this AI
   }
   clear() {
     this.memIdx = -1;
     this.memVal = null;
   }
-  takeAction(game) {
-    if (this.memIdx !== -1) {
-      const val = this.memVal;
-      let idx = this.memIdx;
-      if (game.piles[idx].rabbitNum !== val) {
-        // here we allow to look for the rabbitNum, this is equivalent 
-        // as the user tracking the card he saw in the previous turn, but 
-        // that has been moved by another player
-        idx = game.piles.findIndex((p) => p.rabbitNum === val);
-        this.memIdx = idx;
+
+  _findLastPeek(turnHistory) {
+    let lastPeek = null;
+    for (let i = turnHistory.length - 1; i >= 0; i--) {
+      const h = turnHistory[i];
+      if (h.player !== this.id && h.action.type === "peek") {
+        lastPeek = h.action.i1;
+        break;
       }
-      const dest = val - 1;
+    }
+    if (lastPeek === null && this.lastPeek !== null) {
+      lastPeek = this.lastPeek.idx;
+    }
+    return lastPeek;
+  }
+
+  _tryRememberedCard(game) {
+    if (this.memIdx === -1) return null;
+    const val = this.memVal;
+    let idx = this.memIdx;
+    if (game.piles[idx].rabbitNum !== val) {
+      // We allow looking for the rabbitNum here, as this is equivalent
+      // to track moves done by other players on the AI picked card.
+      idx = game.piles.findIndex((p) => p.rabbitNum === val);
+      this.memIdx = idx;
+    }
+    const dest = val - 1;
+    if (
+      idx !== dest &&
+      !game.piles[idx].hasDove &&
+      !game.piles[dest].hasDove
+    ) {
+      game.swapPiles(idx, dest);
+      this.memIdx = dest;
+      return { type: "swapPile", i1: idx, i2: dest };
+    }
+    if (idx === dest && game.piles[dest].hatNum !== val) {
+      for (let j = 0; j < 9; j++)
+        if (
+          j !== dest &&
+          !game.piles[j].hasDove &&
+          game.piles[j].hatNum === val
+        ) {
+          game.swapHats(dest, j);
+          if (game.piles[dest].hatNum === val) this.clear();
+          return { type: "swapHat", i1: dest, i2: j };
+        }
+    }
+    if (idx === dest && game.piles[dest].hatNum === val) this.clear();
+    return null;
+  }
+
+  _findNextPeekIdx(game, lastPeek, skipCorrectHat = false) {
+    for (let offset = 1; offset <= 9; offset++) {
+      const tryIdx = (lastPeek + offset) % 9;
       if (
-        idx !== dest &&
-        !game.piles[idx].hasDove &&
-        !game.piles[dest].hasDove
+        !game.piles[tryIdx].hasDove &&
+        tryIdx !== this.memIdx &&
+        (!skipCorrectHat || game.piles[tryIdx].hatNum !== tryIdx + 1)
       ) {
-        game.swapPiles(idx, dest);
-        this.memIdx = dest;
-        return { type: "swapPile", i1: idx, i2: dest };
-      }
-      if (idx === dest && game.piles[dest].hatNum !== val) {
-        for (let j = 0; j < 9; j++)
-          if (
-            j !== dest &&
-            !game.piles[j].hasDove &&
-            game.piles[j].hatNum === val
-          ) {
-            game.swapHats(dest, j);
-            if (game.piles[dest].hatNum === val) this.clear();
-            return { type: "swapHat", i1: dest, i2: j };
-          }
-      }
-      if (idx === dest && game.piles[dest].hatNum === val) this.clear();
-    }
-    for (let i = this.zoneStart; i <= this.zoneEnd; i++) {
-      if (game.piles[i].hasDove) continue;
-      if (i === this.memIdx) continue;
-      this.memIdx = i;
-      this.memVal = game.piles[i].rabbitNum;
-      return { type: "peek", i1: i };
-    }
-    // Try to peek, prioritizing hats not in correct position
-    for (let i = 0; i < 9; i++) {
-      if (game.piles[i].hasDove) continue;
-      if (i === this.memIdx) continue;
-      if (game.piles[i].hatNum !== i + 1) {
-        this.memIdx = i;
-        this.memVal = game.piles[i].rabbitNum;
-        return { type: "peek", i1: i };
+        return tryIdx;
       }
     }
-    // If still nothing, peek any valid card outside zone
-    for (let i = 0; i < 9; i++) {
-      if (game.piles[i].hasDove) continue;
-      if (i === this.memIdx) continue;
-      this.memIdx = i;
-      this.memVal = game.piles[i].rabbitNum;
-      return { type: "peek", i1: i };
+    return null;
+  }
+
+  _choosePeek(game, lastPeek) {
+    if (this.round === 1) {
+      for (let i = 0; i < 9; i++) {
+        if (!game.piles[i].hasDove && game.piles[i].hatNum === i + 1) {
+          return i;
+        }
+      }
+    }
+    const skipCorrectHat = this.round > 3 && !game.piles.every((p, i) => p.hatNum === i + 1);
+    return this._findNextPeekIdx(game, lastPeek ?? 0, skipCorrectHat);
+  }
+
+  takeAction(game, turnHistory) {
+    this.round++;
+    const lastPeek = this._findLastPeek(turnHistory);
+    const remembered = this._tryRememberedCard(game);
+    if (remembered) return remembered;
+    const peekIdx = this._choosePeek(game, lastPeek);
+    if (peekIdx !== null) {
+      this.memIdx = peekIdx;
+      this.memVal = game.piles[peekIdx].rabbitNum;
+      this.lastPeek = { idx: peekIdx, val: this.memVal };
+      return { type: "peek", i1: peekIdx };
     }
     return { type: "pass" };
   }
   moveDove(game) {
-    let from = game.piles.findIndex((p) => p.hasDove);
-    for (let i = this.zoneStart; i <= this.zoneEnd; i++) {
-      const p = game.piles[i];
-      if (!p.hasDove && p.rabbitNum === i + 1 && p.hatNum === i + 1) {
-        game.moveDove(from, i);
+    // Find the lowest-index pile with a dove
+    let doveIdx = game.piles.findIndex((p) => p.hasDove);
+    // Find the highest-index pile where hatNum is in the correct place and no dove
+    for (let i = 8; i > doveIdx; i--) {
+      if (!game.piles[i].hasDove && game.piles[i].hatNum === i + 1) {
+        game.moveDove(doveIdx, i);
         return;
       }
     }
