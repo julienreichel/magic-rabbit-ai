@@ -7,16 +7,30 @@ export class Pile {
   }
 }
 export class Game {
-  constructor() {
-    this.init();
+  constructor(numPlayers = 4) {
+    this.init(numPlayers);
   }
-  init() {
+  init(numPlayers = 4) {
     const r = shuffle([...Array(9).keys()].map((n) => n + 1));
     const h = shuffle([...Array(9).keys()].map((n) => n + 1));
     this.piles = [];
     for (let i = 0; i < 9; i++) this.piles.push(new Pile(i, r[i], h[i]));
-    this.piles[0].hasDove = true;
-    this.piles[8].hasDove = true;
+    // Place doves according to player count (default: 4 players)
+    // 4 players: 2 doves (positions 0, 8)
+    // 3 players: 3 doves (positions 0, 4, 8)
+    // 2 players: 4 doves (positions 0, 2, 6, 8)
+    // 1 player: 5 doves (positions 0, 2, 4, 6, 8)
+    const dovePositions = {
+      4: [0, 8],
+      3: [0, 4, 8],
+      2: [0, 2, 6, 8],
+      1: [0, 2, 4, 6, 8],
+    };
+    (dovePositions[numPlayers] || dovePositions[4]).forEach(
+      (idx) => {
+        this.piles[idx].hasDove = true;
+      }
+    );
   }
   swapPiles(a, b) {
     if (this.piles[a].hasDove || this.piles[b].hasDove) return;

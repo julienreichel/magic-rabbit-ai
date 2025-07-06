@@ -25,12 +25,14 @@ const avgHuman = () =>
 // === Initialization ===
 function init() {
   winEl.classList.add("hidden");
-  game = new Game();
-  turnHistory = []; // Reset turn history on new game
   const aiCnt = Math.min(
     3,
     Math.max(1, parseInt(prompt("AI players (1-3)", "2")) || 1)
   );
+  // Number of players = 1 human + aiCnt
+  const numPlayers = 1 + aiCnt;
+  game = new Game(numPlayers);
+  turnHistory = []; // Reset turn history on new game
   players = ["H"];
   for (let i = 1; i <= aiCnt; i++) players.push(new VirtualPlayer(i, aiCnt));
   currentTurn = 0;
