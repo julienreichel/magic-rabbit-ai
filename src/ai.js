@@ -1,4 +1,3 @@
-import { shuffle } from "./game.js";
 export class VirtualPlayer {
   constructor(id, total) {
     this.id = id;
@@ -105,6 +104,16 @@ export class VirtualPlayer {
     }
     return { type: "pass" };
   }
+  _moveToNext(game, fromIdx, onlyCorrectHat = false) {
+    for (let offset = 1; offset < 9; offset++) {
+      let i = (fromIdx - offset + 9) % 9;
+      if (!game.piles[i].hasDove && (!onlyCorrectHat || game.piles[i].hatNum === i + 1)) {
+        game.moveDove(fromIdx, i);
+        return { type: "moveDove", from: fromIdx, to: i };
+      }
+    }
+    return null;
+  }
   moveDove(game) {
     // Find the lowest-index pile with a dove
     let doveIdx = game.piles.findIndex((p) => p.hasDove);
@@ -118,26 +127,15 @@ export class VirtualPlayer {
         blockIdxs = [remembered.i1, remembered.i2];
       }
     }
-    // Helper to move dove to next spot (reverse rotating search), with flag for correct hat
-    const moveToNext = (fromIdx, onlyCorrectHat = false) => {
-      for (let offset = 1; offset < 9; offset++) {
-        let i = (fromIdx - offset + 9) % 9;
-        if (!game.piles[i].hasDove && (!onlyCorrectHat || game.piles[i].hatNum === i + 1)) {
-          game.moveDove(fromIdx, i);
-          return { type: "moveDove", from: fromIdx, to: i };
-        }
-      }
-      return null;
-    };
     // If dove is blocking a needed move, try to move it
     if (blockIdxs.includes(doveIdx)) {
-      let action = moveToNext(doveIdx, true);
+      let action = this._moveToNext(game, doveIdx, true);
       if (action) return action;
-      action = moveToNext(doveIdx, false);
+      action = this._moveToNext(game, doveIdx, false);
       if (action) return action;
     } else {
       // Default: move dove to highest-index pile where hatNum is correct and no dove
-      let action = moveToNext(doveIdx, true);
+      let action = this._moveToNext(game, doveIdx, true);
       if (action) return action;
     }
     return { type: "pass" };
