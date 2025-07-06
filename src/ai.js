@@ -28,44 +28,48 @@ export class VirtualPlayer {
     return lastPeek;
   }
 
-  _tryRememberedCard(game, simulate = false) {
+  _findRememberedAction(game) {
     if (this.memIdx === -1) return null;
     const val = this.memVal;
     let idx = this.memIdx;
     if (game.piles[idx].rabbitNum !== val) {
-      // We allow looking for the rabbitNum here, as this is equivalent
-      // to track moves done by other players on the AI picked card.
       idx = game.piles.findIndex((p) => p.rabbitNum === val);
-      this.memIdx = idx;
+    }
+    if (game.piles[idx].hasDove) {
+      return null;
     }
     const dest = val - 1;
     if (
       idx !== dest &&
-      !game.piles[idx].hasDove &&
       !game.piles[dest].hasDove
     ) {
-      if (!simulate) {
-        game.swapPiles(idx, dest);
-        this.memIdx = dest;
-      }
       return { type: "swapPile", i1: idx, i2: dest };
     }
     if (idx === dest && game.piles[dest].hatNum !== val) {
-      for (let j = 0; j < 9; j++)
-        if (
-          j !== dest &&
-          !game.piles[j].hasDove &&
-          game.piles[j].hatNum === val
-        ) {
-          if (!simulate) {
-            game.swapHats(dest, j);
-            if (game.piles[dest].hatNum === val) this.clear();
-          }
-          return { type: "swapHat", i1: dest, i2: j };
-        }
+      const j = game.piles.findIndex((p, i) => !p.hasDove && p.hatNum === val);
+      if (j !== -1) {
+        return { type: "swapHat", i1: dest, i2: j };
+      }
     }
-    if (idx === dest && game.piles[dest].hatNum === val && !simulate) this.clear();
     return null;
+  }
+
+  _applyRememberedAction(game, action) {
+    if (!action) return;
+    if (action.type === "swapPile") {
+      game.swapPiles(action.i1, action.i2);
+      this.memIdx = action.i2;
+    } else if (action.type === "swapHat") {
+      game.swapHats(action.i1, action.i2);
+    }
+    // If after applying, the card is in the right place with the right hat, clear memory
+    const idx = this.memIdx;
+    if (
+      idx !== -1 &&
+      game.piles[idx].hatNum === this.memVal
+    ) {
+      this.clear();
+    }
   }
 
   _findNextPeekIdx(game, lastPeek, skipCorrectHat = false) {
@@ -96,9 +100,12 @@ export class VirtualPlayer {
 
   takeAction(game, turnHistory) {
     this.round++;
+    const remembered = this._findRememberedAction(game);
+    if (remembered) {
+      this._applyRememberedAction(game, remembered);
+      return remembered;
+    }
     const lastPeek = this._findLastPeek(turnHistory);
-    const remembered = this._tryRememberedCard(game);
-    if (remembered) return remembered;
     const peekIdx = this._choosePeek(game, lastPeek);
     if (peekIdx !== null) {
       this.memIdx = peekIdx;
@@ -122,14 +129,10 @@ export class VirtualPlayer {
     // Find the lowest-index pile with a dove
     let doveIdx = game.piles.findIndex((p) => p.hasDove);
     // Find the AI's next intended move (swapPile or swapHat) WITHOUT mutating game
-    const remembered = this._tryRememberedCard(game, true);
+    const remembered = this._findRememberedAction(game);
     let blockIdxs = [];
-    if (remembered) {
-      if (remembered.type === "swapPile") {
-        blockIdxs = [remembered.i1, remembered.i2];
-      } else if (remembered.type === "swapHat") {
-        blockIdxs = [remembered.i1, remembered.i2];
-      }
+    if (remembered?.type === "swapPile" || remembered?.type === "swapHat") {
+      blockIdxs = [remembered.i1, remembered.i2].filter(i => i !== undefined);
     }
     // If dove is blocking a needed move, try to move it
     if (blockIdxs.includes(doveIdx)) {
