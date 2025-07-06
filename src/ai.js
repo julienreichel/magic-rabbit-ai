@@ -28,7 +28,7 @@ export class VirtualPlayer {
     return lastPeek;
   }
 
-  _tryRememberedCard(game) {
+  _tryRememberedCard(game, simulate = false) {
     if (this.memIdx === -1) return null;
     const val = this.memVal;
     let idx = this.memIdx;
@@ -44,8 +44,10 @@ export class VirtualPlayer {
       !game.piles[idx].hasDove &&
       !game.piles[dest].hasDove
     ) {
-      game.swapPiles(idx, dest);
-      this.memIdx = dest;
+      if (!simulate) {
+        game.swapPiles(idx, dest);
+        this.memIdx = dest;
+      }
       return { type: "swapPile", i1: idx, i2: dest };
     }
     if (idx === dest && game.piles[dest].hatNum !== val) {
@@ -55,12 +57,14 @@ export class VirtualPlayer {
           !game.piles[j].hasDove &&
           game.piles[j].hatNum === val
         ) {
-          game.swapHats(dest, j);
-          if (game.piles[dest].hatNum === val) this.clear();
+          if (!simulate) {
+            game.swapHats(dest, j);
+            if (game.piles[dest].hatNum === val) this.clear();
+          }
           return { type: "swapHat", i1: dest, i2: j };
         }
     }
-    if (idx === dest && game.piles[dest].hatNum === val) this.clear();
+    if (idx === dest && game.piles[dest].hatNum === val && !simulate) this.clear();
     return null;
   }
 
@@ -117,8 +121,8 @@ export class VirtualPlayer {
   moveDove(game) {
     // Find the lowest-index pile with a dove
     let doveIdx = game.piles.findIndex((p) => p.hasDove);
-    // Find the AI's next intended move (swapPile or swapHat)
-    const remembered = this._tryRememberedCard(game);
+    // Find the AI's next intended move (swapPile or swapHat) WITHOUT mutating game
+    const remembered = this._tryRememberedCard(game, true);
     let blockIdxs = [];
     if (remembered) {
       if (remembered.type === "swapPile") {
