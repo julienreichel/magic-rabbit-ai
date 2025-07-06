@@ -108,12 +108,38 @@ export class VirtualPlayer {
   moveDove(game) {
     // Find the lowest-index pile with a dove
     let doveIdx = game.piles.findIndex((p) => p.hasDove);
-    // Find the highest-index pile where hatNum is in the correct place and no dove
-    for (let i = 8; i > doveIdx; i--) {
-      if (!game.piles[i].hasDove && game.piles[i].hatNum === i + 1) {
-        game.moveDove(doveIdx, i);
-        return;
+    // Find the AI's next intended move (swapPile or swapHat)
+    const remembered = this._tryRememberedCard(game);
+    let blockIdxs = [];
+    if (remembered) {
+      if (remembered.type === "swapPile") {
+        blockIdxs = [remembered.i1, remembered.i2];
+      } else if (remembered.type === "swapHat") {
+        blockIdxs = [remembered.i1, remembered.i2];
       }
     }
+    // Helper to move dove to next spot (reverse rotating search), with flag for correct hat
+    const moveToNext = (fromIdx, onlyCorrectHat = false) => {
+      for (let offset = 1; offset < 9; offset++) {
+        let i = (fromIdx - offset + 9) % 9;
+        if (!game.piles[i].hasDove && (!onlyCorrectHat || game.piles[i].hatNum === i + 1)) {
+          game.moveDove(fromIdx, i);
+          return { type: "moveDove", from: fromIdx, to: i };
+        }
+      }
+      return null;
+    };
+    // If dove is blocking a needed move, try to move it
+    if (blockIdxs.includes(doveIdx)) {
+      let action = moveToNext(doveIdx, true);
+      if (action) return action;
+      action = moveToNext(doveIdx, false);
+      if (action) return action;
+    } else {
+      // Default: move dove to highest-index pile where hatNum is correct and no dove
+      let action = moveToNext(doveIdx, true);
+      if (action) return action;
+    }
+    return { type: "pass" };
   }
 }

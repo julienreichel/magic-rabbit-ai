@@ -178,10 +178,6 @@ function humanDove(idx, dom) {
   if (selDove === null) {
     selDove = idx;
     dom.classList.add("highlight");
-    doveTimer = setTimeout(() => {
-      cancelDove();
-      endTurn();
-    }, 5000);
     return;
   }
   // If clicking the same dove again, pass
@@ -199,7 +195,7 @@ function moveDoveTo(target) {
   if (game.piles[target].hasDove) return;
   if (!hasPlayed) return;
   game.moveDove(selDove, target);
-  turnHistory.push({ player: players[currentTurn] === "H" ? "H" : players[currentTurn].id, action: { type: "moveDove", from: selDove, to: target } });
+  turnHistory.push({ player: "H", action: { type: "moveDove", from: selDove, to: target } });
   cancelDove();
   render();
   endTurn();
@@ -243,15 +239,14 @@ function aiTurn() {
     );
   // Record AI action in turnHistory
   if (res.type === "peek" || res.type === "swapHat" || res.type === "swapPile") {
-    turnHistory.push({ player: ai.id, action: { ...res } });
+    turnHistory.push({ player: ai.id, action: res });
   }
   lock = true;
   flash(flashes, () => {
-    ai.moveDove(game);
+    const doveAction = ai.moveDove(game);
     // Record dove move if any
-    if (game.lastDoveMove) {
-      turnHistory.push({ player: ai.id, action: { type: "moveDove", ...game.lastDoveMove } });
-      game.lastDoveMove = null;
+    if (doveAction?.type === "moveDove") {
+      turnHistory.push({ player: ai.id, action: doveAction });
     }
     render();
     lock = false;
