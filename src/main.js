@@ -25,6 +25,8 @@ const avgHuman = () =>
 // === Initialization ===
 function init() {
   winEl.classList.add("hidden");
+  // Remove all .revealed classes from previous game
+  document.querySelectorAll(".rabbit .revealed, .card.rabbit.revealed").forEach(el => el.classList.remove("revealed"));
   const aiCnt = Math.min(
     3,
     Math.max(1, parseInt(prompt("AI players (1-3)", "2")) || 1)
@@ -98,7 +100,7 @@ let hasPlayed = false;
 
 function humanHat(idx, dom) {
   if (lock || players[currentTurn] !== "H") return;
-  if (checkWin() || timerEl.textContent === "Time: 0s") return;
+  if (isGameOver()) return;
   if (selDove !== null) {
     moveDoveTo(idx);
     return;
@@ -130,7 +132,7 @@ function humanHat(idx, dom) {
 
 function humanRabbit(idx, dom) {
   if (lock || players[currentTurn] !== "H") return;
-  if (checkWin() || timerEl.textContent === "Time: 0s") return;
+  if (isGameOver()) return;
   if (selDove !== null) {
     moveDoveTo(idx);
     return;
@@ -172,8 +174,7 @@ function reveal(el) {
   if (lock || players[currentTurn] !== "H") return;
   if (selDove !== null) return;
   if (hasPlayed) return;
-  // Prevent reveal if game is over
-  if (checkWin() || timerEl.textContent === "Time: 0s") return;
+  if (isGameOver()) return;
   el.classList.add("revealed");
   turnHistory.push({ player: "H", action: { type: "peek", i1: Array.from(board.children).findIndex(pile => pile.querySelector(".rabbit") === el) } });
   hasPlayed = true;
@@ -186,7 +187,7 @@ function reveal(el) {
 }
 function humanDove(idx, dom) {
   if (lock || players[currentTurn] !== "H") return;
-  if (checkWin() || timerEl.textContent === "Time: 0s") return;
+  if (isGameOver()) return;
   if (!hasPlayed) return; // Only allow dove after a move
   if (selDove === null) {
     selDove = idx;
@@ -205,7 +206,7 @@ function humanDove(idx, dom) {
 
 
 function moveDoveTo(target) {
-  if (checkWin() || timerEl.textContent === "Time: 0s") return;
+  if (isGameOver()) return;
   if (game.piles[target].hasDove) return;
   if (!hasPlayed) return;
   game.moveDove(selDove, target);
@@ -324,6 +325,7 @@ function startTimer() {
     if (s <= 0) {
       clearInterval(timerInt);
       alert("Time up!");
+      render(); // Ensure board updates to show all rabbits when time is up
     }
   }, 1000);
 }
@@ -331,6 +333,9 @@ function checkWin() {
   return game.piles.every(
     (p, i) => p.rabbitNum === i + 1 && p.hatNum === i + 1
   );
+}
+function isGameOver() {
+  return checkWin() || timerEl.textContent === "Time: 0s";
 }
 
 // === Instructions box ===
