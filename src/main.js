@@ -51,22 +51,28 @@ function init() {
 // === Rendering ===
 function render() {
   board.innerHTML = "";
+  const gameOver = checkWin() || timerEl.textContent === "Time: 0s";
   game.piles.forEach((p, i) => {
     const pile = document.createElement("div");
     pile.className = "pile" + (p.hasDove ? " blocked" : "");
     if (p.hasDove) {
       const d = card("🕊️", "card small doveToken");
-      d.onclick = (e) => humanDove(i, d);
+      // Only allow dove click if not game over
+      if (!gameOver) d.onclick = (e) => humanDove(i, d);
       pile.appendChild(d);
     }
     const hat = card(`🎩<span class=num>${p.hatNum}</span>`, "card hat");
-    hat.onclick = (e) => humanHat(i, hat);
+    // Only allow hat click if not game over
+    if (!gameOver) hat.onclick = (e) => humanHat(i, hat);
     const rabbit = card(
-      `🐇<span class=num>${p.rabbitNum}</span>`,
-      "card rabbit"
+      `🐇<span class=num${gameOver ? " revealed" : ""}>${p.rabbitNum}</span>`,
+      "card rabbit" + (gameOver ? " revealed" : "")
     );
-    rabbit.onclick = (e) => humanRabbit(i, rabbit);
-    rabbit.ondblclick = (e) => reveal(rabbit);
+    // Only allow rabbit click if not game over
+    if (!gameOver) {
+      rabbit.onclick = (e) => humanRabbit(i, rabbit);
+      rabbit.ondblclick = (e) => reveal(rabbit);
+    }
     pile.append(hat, rabbit);
     board.appendChild(pile);
   });
@@ -92,6 +98,7 @@ let hasPlayed = false;
 
 function humanHat(idx, dom) {
   if (lock || players[currentTurn] !== "H") return;
+  if (checkWin() || timerEl.textContent === "Time: 0s") return;
   if (selDove !== null) {
     moveDoveTo(idx);
     return;
@@ -123,6 +130,7 @@ function humanHat(idx, dom) {
 
 function humanRabbit(idx, dom) {
   if (lock || players[currentTurn] !== "H") return;
+  if (checkWin() || timerEl.textContent === "Time: 0s") return;
   if (selDove !== null) {
     moveDoveTo(idx);
     return;
@@ -164,6 +172,8 @@ function reveal(el) {
   if (lock || players[currentTurn] !== "H") return;
   if (selDove !== null) return;
   if (hasPlayed) return;
+  // Prevent reveal if game is over
+  if (checkWin() || timerEl.textContent === "Time: 0s") return;
   el.classList.add("revealed");
   turnHistory.push({ player: "H", action: { type: "peek", i1: Array.from(board.children).findIndex(pile => pile.querySelector(".rabbit") === el) } });
   hasPlayed = true;
@@ -176,6 +186,7 @@ function reveal(el) {
 }
 function humanDove(idx, dom) {
   if (lock || players[currentTurn] !== "H") return;
+  if (checkWin() || timerEl.textContent === "Time: 0s") return;
   if (!hasPlayed) return; // Only allow dove after a move
   if (selDove === null) {
     selDove = idx;
@@ -194,6 +205,7 @@ function humanDove(idx, dom) {
 
 
 function moveDoveTo(target) {
+  if (checkWin() || timerEl.textContent === "Time: 0s") return;
   if (game.piles[target].hasDove) return;
   if (!hasPlayed) return;
   game.moveDove(selDove, target);
