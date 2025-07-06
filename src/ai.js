@@ -18,6 +18,9 @@ export class VirtualPlayer {
       const val = this.memVal;
       let idx = this.memIdx;
       if (game.piles[idx].rabbitNum !== val) {
+        // here we allow to look for the rabbitNum, this is equivalent 
+        // as the user tracking the card he saw in the previous turn, but 
+        // that has been moved by another player
         idx = game.piles.findIndex((p) => p.rabbitNum === val);
         this.memIdx = idx;
       }
@@ -47,7 +50,6 @@ export class VirtualPlayer {
     }
     for (let i = this.zoneStart; i <= this.zoneEnd; i++) {
       if (game.piles[i].hasDove) continue;
-      if (game.piles[i].rabbitNum === i + 1) continue;
       if (i === this.memIdx) continue;
       this.memIdx = i;
       this.memVal = game.piles[i].rabbitNum;
@@ -56,7 +58,6 @@ export class VirtualPlayer {
     // Try to peek, prioritizing hats not in correct position
     for (let i = 0; i < 9; i++) {
       if (game.piles[i].hasDove) continue;
-      if (game.piles[i].rabbitNum === i + 1) continue;
       if (i === this.memIdx) continue;
       if (game.piles[i].hatNum !== i + 1) {
         this.memIdx = i;
