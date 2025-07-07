@@ -148,11 +148,14 @@ let hasPlayed = false;
 function humanHat(idx, dom) {
   if (lock || players[currentTurn] !== "H") return;
   if (isGameOver()) return;
+  // Prevent selecting a hat under a dove
+  if (game.piles[idx].hasDove) return;
   if (selDove !== null) {
     moveDoveTo(idx);
     return;
   }
   if (hasPlayed) return; // Prevent more than one move
+  
   if (selHat === null) {
     selHat = idx;
     dom.classList.add("highlight");
@@ -180,11 +183,14 @@ function humanHat(idx, dom) {
 function humanRabbit(idx, dom) {
   if (lock || players[currentTurn] !== "H") return;
   if (isGameOver()) return;
+  // Prevent selecting a rabbit under a dove
+  if (game.piles[idx].hasDove) return;
   if (selDove !== null) {
     moveDoveTo(idx);
     return;
   }
   if (hasPlayed) return; // Prevent more than one move
+  
   if (selRab === null) {
     selRab = idx;
     dom.classList.add("highlight");
