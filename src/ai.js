@@ -46,9 +46,14 @@ export class VirtualPlayer {
       return { type: "swapPile", i1: idx, i2: dest };
     }
     if (idx === dest && game.piles[dest].hatNum !== val) {
-      const j = game.piles.findIndex((p, i) => (!p.hasDove || ignoreDove) && p.hatNum === val);
+      const j = game.piles.findIndex((p, i) => p.hatNum === val && !p.hasDove);
       if (j !== -1) {
         return { type: "swapHat", i1: dest, i2: j };
+      } else if (ignoreDove) {
+        // If j == -1, it means the hat is hidden under a dove. Pick any dove at random.
+        const allDoves = game.piles.map((p, i) => p.hasDove ? i : -1).filter(i => i !== -1);
+        const randomDoveIdx = allDoves[Math.floor(Math.random() * allDoves.length)];
+        return { type: "swapHat", i1: dest, i2: randomDoveIdx };
       }
     }
     return null;
@@ -125,15 +130,27 @@ export class VirtualPlayer {
     }
     return null;
   }
-  // Helper: pick a dove to move, prefer one on a pile with incorrect hat
+  // Helper: pick a dove to move, prefer one on a pile with a visible hat that is not at its right position
   _pickDoveIdx(game) {
-    let doveIdx = game.piles.findIndex((p, i) => p.hasDove && p.hatNum !== i + 1);
-    if (doveIdx === -1) {
-      // All doves are on correct hats, pick one at random
-      const allDoves = game.piles.map((p, i) => p.hasDove ? i : -1).filter(i => i !== -1);
-      doveIdx = allDoves[Math.floor(Math.random() * allDoves.length)];
+    // 1. Find all visible hats (no dove on top) that are not at their correct position
+    const visibleWrongHatNums = [];
+    for (let i = 0; i < game.piles.length; i++) {
+      const p = game.piles[i];
+      if (!p.hasDove && p.hatNum !== i + 1) {
+        visibleWrongHatNums.push(p.hatNum);
+      }
     }
-    return doveIdx;
+    // 2. For each visible wrong hat, check if there is a dove on the pile where this hatNum should be
+    for (const hatNum of visibleWrongHatNums) {
+      const doveIdx = hatNum - 1;
+      if (game.piles[doveIdx]?.hasDove) {
+        // The dove at doveIdx is sitting on a wrong hat (inferred from visible hat)
+        return doveIdx;
+      }
+    }
+    // 3. Otherwise, pick any dove at random
+    const allDoves = game.piles.map((p, i) => p.hasDove ? i : -1).filter(i => i !== -1);
+    return allDoves[Math.floor(Math.random() * allDoves.length)];
   }
 
   moveDove(game, turnHistory = []) {

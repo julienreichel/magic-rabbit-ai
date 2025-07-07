@@ -118,25 +118,32 @@ function render() {
   game.piles.forEach((p, i) => {
     const pile = document.createElement("div");
     pile.className = "pile" + (p.hasDove ? " blocked" : "");
-    if (p.hasDove) {
-      const d = card("🕊️", "card small doveToken");
-      // Only allow dove click if not game over
-      if (!gameOver) d.onclick = (e) => humanDove(i, d);
-      pile.appendChild(d);
-    }
+    // Hat
     const hat = card(`🎩<span class=num>${p.hatNum}</span>`, "card hat");
-    // Only allow hat click if not game over
     if (!gameOver) hat.onclick = (e) => humanHat(i, hat);
+    // Dove (if present) - will be styled to overlay the hat and hide the number
+    let dove = null;
+    if (p.hasDove) {
+      dove = card("🕊️", "card doveToken");
+      if (!gameOver) dove.onclick = (e) => humanDove(i, dove);
+      pile.appendChild(hat);
+      pile.appendChild(dove); // Add dove after hat so it overlays
+      // Hide the hat number
+      const numSpan = hat.querySelector('.num');
+      if (numSpan) numSpan.classList.add('dove-hidden');
+    } else {
+      pile.appendChild(hat);
+    }
+    // Rabbit
     const rabbit = card(
       `🐇<span class=num${gameOver ? " revealed" : ""}>${p.rabbitNum}</span>`,
       "card rabbit" + (gameOver ? " revealed" : "")
     );
-    // Only allow rabbit click if not game over
     if (!gameOver) {
       rabbit.onclick = (e) => humanRabbit(i, rabbit);
       rabbit.ondblclick = (e) => reveal(rabbit);
     }
-    pile.append(hat, rabbit);
+    pile.appendChild(rabbit);
     board.appendChild(pile);
   });
   if (checkWin()) {
