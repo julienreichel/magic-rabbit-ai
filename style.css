@@ -255,3 +255,37 @@ body {
 .stats-table tr:nth-child(odd) td {
   background: #fff;
 }
+.multi-run-btns {
+  margin: 10px 0 18px 0;
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+.multi-run-btn {
+  font-size: 1.1em;
+  padding: 6px 16px;
+  border-radius: 6px;
+  border: 1px solid #888;
+  background: #e0e0ff;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.multi-run-btn:hover {
+  background: #d0d0ff;
+}
+#multiRunOverlay h2 {
+  margin-bottom: 0.5em;
+}
+#multiRunCancelBtn {
+  margin-top: 10px;
+  font-size: 1em;
+  padding: 5px 18px;
+  border-radius: 6px;
+  border: 1px solid #888;
+  background: #fff;
+  cursor: pointer;
+}
+#multiRunCancelBtn:hover {
+  background: #f0f0f0;
+}

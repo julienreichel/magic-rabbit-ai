@@ -54,6 +54,20 @@
       <button id="playAgainBtn">Play Again</button>
     </div>
 
+    <div id="multiRunOverlay" class="overlay hidden" style="z-index:2001">
+      <div class="wand">🪄</div>
+      <h2>AI Blitz: Run multiple games?</h2>
+      <div class="multi-run-btns">
+        <button class="multi-run-btn" data-n="1">1</button>
+        <button class="multi-run-btn" data-n="5">5</button>
+        <button class="multi-run-btn" data-n="10">10</button>
+        <button class="multi-run-btn" data-n="50">50</button>
+        <button class="multi-run-btn" data-n="100">100</button>
+        <button class="multi-run-btn" data-n="1000">1000</button>
+      </div>
+      <button id="multiRunCancelBtn">Cancel</button>
+    </div>
+
     <script type="module" src="./src/main.js"></script>
   </body>
 </html>

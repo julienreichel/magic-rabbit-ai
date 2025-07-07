@@ -46,6 +46,10 @@ if (waitTimeSelect) {
 function showSetupScreen() {
   setupScreen.classList.remove("hidden");
   document.body.classList.add("setup-active");
+  // Hide overlays and clear stats display
+  winEl.classList.add("hidden");
+  const idealStats = document.getElementById("idealStats");
+  if (idealStats) idealStats.innerHTML = "";
 }
 function hideSetupScreen() {
   setupScreen.classList.add("hidden");
@@ -68,6 +72,12 @@ aiCountInput.addEventListener("input", () => {
 startGameBtn.onclick = () => {
   const aiCnt = Math.min(4, Math.max(0, parseInt(aiCountInput.value) || 0));
   const aiOnly = aiOnlyCheckbox.checked || aiCnt === 4;
+  // Multi-run AI blitz prompt logic moved here
+  if (aiOnly) {
+    hideSetupScreen();
+    showMultiRunPrompt();
+    return;
+  }
   hideSetupScreen();
   init(aiCnt, aiOnly);
 };
@@ -148,7 +158,6 @@ function render() {
   });
   if (checkWin()) {
     clearInterval(timerInt);
-    winEl.classList.remove("hidden");
     // Count turns and dove moves
     let mainMoves = 0, doveMoves = 0;
     for (const t of turnHistory) {
@@ -159,6 +168,19 @@ function render() {
     const numPlayers = players.length;
     const delta = mainMoves - game.minTotalMoves;
     recordGameStats(numPlayers, delta, doveMoves);
+    
+    // Multi-run logic: if in multi-run mode, auto-restart until done
+    if (multiRunTarget) {
+      multiRunCount++;
+      if (multiRunCount < multiRunTarget) {
+        setTimeout(() => {
+          init(multiRunParams.aiCnt, true);
+        }, multiRunParams.waitTime * 5);
+        return; // Don't show win panel yet
+      }
+    }
+    winEl.classList.remove("hidden");
+    
     // Update stats in win overlay
     const turnsStat = document.getElementById("turnsStat");
     const doveStat = document.getElementById("doveStat");
@@ -507,19 +529,42 @@ function recordGameStats(numPlayers, delta, doveMoves) {
 function renderStatsTable() {
   const stats = loadStats();
   let html = '<table class="stats-table"><thead><tr><th>Players</th>';
-  // Find all deltas used
+  // Find all deltas used, but group all >20 into one column, and all <0 as 0
   const allDeltas = new Set();
+  let hasOver20 = false;
   for (const n of [1,2,3,4]) {
-    if (stats[n]) for (const d in stats[n]) allDeltas.add(Number(d));
+    if (stats[n]) for (const d in stats[n]) {
+      const numD = Number(d);
+      if (numD > 20) hasOver20 = true;
+      else if (numD < 0) allDeltas.add(0);
+      else allDeltas.add(numD);
+    }
   }
   const deltas = Array.from(allDeltas).sort((a,b)=>a-b);
   for (const d of deltas) html += `<th>Δ${d}</th>`;
+  if (hasOver20) html += `<th>Δ&gt;20</th>`;
   html += '</tr></thead><tbody>';
   for (const n of [1,2,3,4]) {
     html += `<tr><td>${n}</td>`;
     for (const d of deltas) {
-      const cell = stats[n]?.[d]?.count || 0;
+      // Sum all stats[n][d] where d==0 or d<0 for Δ0 column
+      let cell = 0;
+      if (d === 0) {
+        for (const k in stats[n]) {
+          if (Number(k) <= 0) cell += stats[n][k].count;
+        }
+      } else {
+        cell = stats[n]?.[d]?.count || 0;
+      }
       html += `<td>${cell}</td>`;
+    }
+    // Sum all deltas > 20
+    if (hasOver20) {
+      let over20 = 0;
+      for (const d in stats[n]) {
+        if (Number(d) > 20) over20 += stats[n][d].count;
+      }
+      html += `<td>${over20}</td>`;
     }
     html += '</tr>';
   }
@@ -527,7 +572,45 @@ function renderStatsTable() {
   return html;
 }
 
-// === Event bindings ===
-document.querySelector("#resetBtn").onclick = init;
-document.querySelector("#playAgainBtn").onclick = init;
+// === Multi-run AI blitz ===
+let multiRunCount = 0;
+let multiRunTarget = 0;
+let multiRunParams = null;
+
+function showMultiRunPrompt() {
+  const overlay = document.getElementById('multiRunOverlay');
+  overlay.classList.remove('hidden');
+  overlay.querySelectorAll('.multi-run-btn').forEach(btn => {
+    btn.onclick = () => {
+      multiRunTarget = parseInt(btn.dataset.n);
+      multiRunCount = 0;
+      multiRunParams = {
+        aiCnt: parseInt(aiCountInput.value),
+        aiOnly: true,
+        waitTime: parseFloat(waitTimeSelect.value)
+      };
+      overlay.classList.add('hidden');
+      startMultiRun();
+    };
+  });
+  overlay.querySelector('#multiRunCancelBtn').onclick = () => {
+    overlay.classList.add('hidden');
+  };
+}
+
+function startMultiRun() {
+  winEl.classList.add('hidden');
+  init(multiRunParams.aiCnt, true);
+}
+
+document.querySelector("#resetBtn").onclick = () => {
+  multiRunTarget = 0;
+  multiRunParams = null;
+  showSetupScreen();
+};
+document.querySelector("#playAgainBtn").onclick = () => {
+  multiRunTarget = 0;
+  multiRunParams = null;
+  showSetupScreen();
+};
 init();
