@@ -155,6 +155,10 @@ function render() {
       if (t.action.type === "moveDove") doveMoves++;
       else mainMoves++;
     }
+    // Record stats
+    const numPlayers = players.length;
+    const delta = mainMoves - game.minTotalMoves;
+    recordGameStats(numPlayers, delta, doveMoves);
     // Update stats in win overlay
     const turnsStat = document.getElementById("turnsStat");
     const doveStat = document.getElementById("doveStat");
@@ -163,9 +167,10 @@ function render() {
     // Display ideal move stats
     const idealStats = document.getElementById("idealStats");
     if (idealStats) {
-      idealStats.innerHTML = `<b>Ideal moves:</b> 
-        <span><b>${game.minTotalMoves}</b></span>`;
+      idealStats.innerHTML = `<b>Ideal moves:</b> <span>${game.minTotalMoves}</span>`;
       idealStats.style.marginTop = "10px";
+      // Add stats table
+      idealStats.innerHTML += renderStatsTable();
     }
   } else {
     // Hide stats if not game over
@@ -475,6 +480,51 @@ function updateInstructions(state) {
   } else {
     instructionsContent.innerHTML = "";
   }
+}
+
+// === Persistent stats storage ===
+const STATS_KEY = "magicRabbitStats";
+function loadStats() {
+  try {
+    return JSON.parse(localStorage.getItem(STATS_KEY)) || {};
+  } catch {
+    return {};
+  }
+}
+function saveStats(stats) {
+  localStorage.setItem(STATS_KEY, JSON.stringify(stats));
+}
+
+function recordGameStats(numPlayers, delta, doveMoves) {
+  const stats = loadStats();
+  if (!stats[numPlayers]) stats[numPlayers] = {};
+  if (!stats[numPlayers][delta]) stats[numPlayers][delta] = { count: 0, dove: 0 };
+  stats[numPlayers][delta].count++;
+  stats[numPlayers][delta].dove += doveMoves;
+  saveStats(stats);
+}
+
+function renderStatsTable() {
+  const stats = loadStats();
+  let html = '<table class="stats-table"><thead><tr><th>Players</th>';
+  // Find all deltas used
+  const allDeltas = new Set();
+  for (const n of [1,2,3,4]) {
+    if (stats[n]) for (const d in stats[n]) allDeltas.add(Number(d));
+  }
+  const deltas = Array.from(allDeltas).sort((a,b)=>a-b);
+  for (const d of deltas) html += `<th>Δ${d}</th>`;
+  html += '</tr></thead><tbody>';
+  for (const n of [1,2,3,4]) {
+    html += `<tr><td>${n}</td>`;
+    for (const d of deltas) {
+      const cell = stats[n]?.[d]?.count || 0;
+      html += `<td>${cell}</td>`;
+    }
+    html += '</tr>';
+  }
+  html += '</tbody></table>';
+  return html;
 }
 
 // === Event bindings ===

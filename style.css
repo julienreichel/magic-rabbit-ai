@@ -227,3 +227,31 @@ body {
   align-items: center;
   gap: 0.5em;
 }
+.stats-table {
+  margin-top: 10px;
+  text-align: center;
+  border-collapse: collapse;
+  width: 100%;
+  max-width: 340px;
+  background: #fff;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px #0001;
+  font-size: 1em;
+  color: #222;
+}
+.stats-table th, .stats-table td {
+  border: 1px solid #bbb;
+  padding: 4px 10px;
+  color: #222;
+  background: #f8f8ff;
+}
+.stats-table th {
+  background: #e0e0ff;
+  font-weight: bold;
+}
+.stats-table tr:nth-child(even) td {
+  background: #f8f8ff;
+}
+.stats-table tr:nth-child(odd) td {
+  background: #fff;
+}
