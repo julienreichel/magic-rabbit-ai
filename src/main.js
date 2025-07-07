@@ -100,6 +100,9 @@ function init(aiCnt, aiOnly) {
 // === Rendering ===
 function render() {
   board.innerHTML = "";
+  // Remove previous stats if any
+  const oldStats = winEl.querySelector('.turn-stats');
+  if (oldStats) oldStats.remove();
   const gameOver = checkWin() || timerEl.textContent === "Time: 0s";
   game.piles.forEach((p, i) => {
     const pile = document.createElement("div");
@@ -128,6 +131,17 @@ function render() {
   if (checkWin()) {
     clearInterval(timerInt);
     winEl.classList.remove("hidden");
+    // Count turns and dove moves
+    let mainMoves = 0, doveMoves = 0;
+    for (const t of turnHistory) {
+      if (t.action.type === "moveDove") doveMoves++;
+      else mainMoves++;
+    }
+    // Show stats in win overlay
+    const stats = document.createElement("div");
+    stats.className = "turn-stats";
+    stats.innerHTML = `<b>Turns:</b> ${mainMoves}<br><b>Dove moves:</b> ${doveMoves}`;
+    winEl.appendChild(stats);
   }
 }
 function card(html, cls) {
