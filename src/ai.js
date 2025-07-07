@@ -99,7 +99,7 @@ export class VirtualPlayer {
         }
       }
     }
-    const skipCorrectHat = this.round > 3 && !game.piles.every((p, i) => p.hatNum === i + 1);
+    const skipCorrectHat = this.round > 3 && !game.piles.every((p, i) => p.hatNum === i + 1 || p.hasDove);
     return this._findNextPeekIdx(game, lastPeek ?? 0, skipCorrectHat);
   }
 
