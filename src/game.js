@@ -31,6 +31,39 @@ export class Game {
         this.piles[idx].hasDove = true;
       }
     );
+
+    // --- Compute minimum number of moves for this combination ---
+    function minMoves(rArr, hArr) {
+      let moves = 0;
+      let rabbits = rArr.slice();
+      let hats = hArr.slice();
+      let skippedPeaks = 0;
+      for (let i = 0; i < rabbits.length; i++) {
+        while (rabbits[i] !== i + 1) {
+          skippedPeaks = 0; // Reset skipped peaks count
+          const correctIdx = rabbits[i] - 1;
+          // Swap rabbits
+          [rabbits[i], rabbits[correctIdx]] = [rabbits[correctIdx], rabbits[i]];
+          [hats[i], hats[correctIdx]] = [hats[correctIdx], hats[i]];
+          // Sort hats if needed
+          if (hats[correctIdx] !== i + 1) {
+            const correctHatIdx = hats.indexOf(i + 1);
+            [hats[correctHatIdx], hats[i]] = [hats[i], hats[correctHatIdx]];
+            moves += 1;
+          }
+          moves += 2;
+        }
+        // this will not be counted if everything is already sorted
+        skippedPeaks += 1;
+        moves += 1;
+      }
+
+      moves -= skippedPeaks; // Last peak is not needed
+      return { moves, sortedHats: hats };
+    }
+    const { moves: minAllAtOnce } = minMoves(r, h);
+    this.minAllAtOnce = minAllAtOnce;
+    this.minTotalMoves = minAllAtOnce;
   }
   swapPiles(a, b) {
     if (this.piles[a].hasDove || this.piles[b].hasDove) return;

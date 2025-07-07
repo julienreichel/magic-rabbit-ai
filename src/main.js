@@ -160,12 +160,21 @@ function render() {
     const doveStat = document.getElementById("doveStat");
     if (turnsStat) turnsStat.textContent = mainMoves;
     if (doveStat) doveStat.textContent = doveMoves;
+    // Display ideal move stats
+    const idealStats = document.getElementById("idealStats");
+    if (idealStats) {
+      idealStats.innerHTML = `<b>Ideal moves:</b> 
+        <span><b>${game.minTotalMoves}</b></span>`;
+      idealStats.style.marginTop = "10px";
+    }
   } else {
     // Hide stats if not game over
     const turnsStat = document.getElementById("turnsStat");
     const doveStat = document.getElementById("doveStat");
     if (turnsStat) turnsStat.textContent = "";
     if (doveStat) doveStat.textContent = "";
+    const idealStats = document.getElementById("idealStats");
+    if (idealStats) idealStats.innerHTML = "";
   }
 }
 function card(html, cls) {
