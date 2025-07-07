@@ -22,15 +22,36 @@ const avgHuman = () =>
     ? Math.max(400, Math.min(5000, Math.floor(totalHuman / humanTurns)))
     : 800;
 
+// === Setup screen ===
+// Use static HTML setup screen instead of creating it in JS
+const setupScreen = document.getElementById("setupScreen");
+const aiCountInput = document.getElementById("aiCountInput");
+const startGameBtn = document.getElementById("startGameBtn");
+
+function showSetupScreen() {
+  setupScreen.classList.remove("hidden");
+  document.body.classList.add("setup-active");
+}
+function hideSetupScreen() {
+  setupScreen.classList.add("hidden");
+  document.body.classList.remove("setup-active");
+}
+
+startGameBtn.onclick = () => {
+  const aiCnt = Math.min(3, Math.max(1, parseInt(aiCountInput.value) || 1));
+  hideSetupScreen();
+  init(aiCnt);
+};
+
 // === Initialization ===
-function init() {
+function init(aiCnt) {
   winEl.classList.add("hidden");
   // Remove all .revealed classes from previous game
   document.querySelectorAll(".rabbit .revealed, .card.rabbit.revealed").forEach(el => el.classList.remove("revealed"));
-  const aiCnt = Math.min(
-    3,
-    Math.max(1, parseInt(prompt("AI players (1-3)", "2")) || 1)
-  );
+  if (typeof aiCnt !== "number") {
+    showSetupScreen();
+    return;
+  }
   // Number of players = 1 human + aiCnt
   const numPlayers = 1 + aiCnt;
   game = new Game(numPlayers);
