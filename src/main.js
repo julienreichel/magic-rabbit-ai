@@ -17,10 +17,16 @@ let humanStart = 0,
   totalHuman = 0,
   humanTurns = 0;
 let turnHistory = []; // Track all actions for AI
-const avgHuman = () =>
-  humanTurns
-    ? Math.max(400, Math.min(5000, Math.floor(totalHuman / humanTurns)))
-    : 1000;
+const avgHuman = () => {
+  // If there is a human, use the average human speed (bounded), else use WAIT_TIME
+  if (humanTurns > 0) {
+    return Math.max(WAIT_TIME, Math.min(5000, Math.floor(totalHuman / humanTurns)));
+  }
+  return WAIT_TIME;
+};
+
+// === Timing config ===
+let WAIT_TIME = 1000; // Default: 1s
 
 // === Setup screen ===
 // Use static HTML setup screen instead of creating it in JS
@@ -28,6 +34,14 @@ const setupScreen = document.getElementById("setupScreen");
 const aiCountInput = document.getElementById("aiCountInput");
 const startGameBtn = document.getElementById("startGameBtn");
 const aiOnlyCheckbox = document.getElementById("aiOnlyCheckbox");
+const waitTimeSelect = document.getElementById("waitTimeSelect");
+
+if (waitTimeSelect) {
+  waitTimeSelect.value = "1000";
+  waitTimeSelect.onchange = () => {
+    WAIT_TIME = parseFloat(waitTimeSelect.value);
+  };
+}
 
 function showSetupScreen() {
   setupScreen.classList.remove("hidden");
@@ -92,7 +106,7 @@ function init(aiCnt, aiOnly) {
     updateInstructions("");
     // If no human player, trigger only the first AI move
     if (!players.includes("H")) {
-      setTimeout(aiTurn, 1000);
+      setTimeout(aiTurn, WAIT_TIME);
     }
   }
 }
@@ -348,7 +362,7 @@ function flash(elems, cb) {
   setTimeout(() => {
     elems.forEach((el) => el && el.classList.remove("flash"));
     cb && cb();
-  }, 1000);
+  }, WAIT_TIME);
 }
 
 function endTurn() {
@@ -369,7 +383,7 @@ function endTurn() {
     updateInstructions("");
     // Only let AI play if the game is not over
     if (!checkWin()) {
-      setTimeout(aiTurn, avgHuman());
+      setTimeout(aiTurn, WAIT_TIME);
     }
   }
 }
