@@ -8,15 +8,19 @@
   <body>
     <!-- Setup screen moved from JS to HTML -->
     <div id="setupScreen" class="setup-screen">
-      <h2>How many AI players? (1-3)</h2>
+      <h2>How many AI players? (0-4)</h2>
       <input
         id="aiCountInput"
         type="number"
-        min="1"
-        max="3"
+        min="0"
+        max="4"
         value="2"
         class="setup-input"
       />
+      <div class="setup-ai-toggle">
+        <input type="checkbox" id="aiOnlyCheckbox" />
+        <label for="aiOnlyCheckbox">Use only AI players (no human)</label>
+      </div>
       <button id="startGameBtn" class="setup-btn">Start Game</button>
     </div>
 

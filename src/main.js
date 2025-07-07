@@ -20,13 +20,14 @@ let turnHistory = []; // Track all actions for AI
 const avgHuman = () =>
   humanTurns
     ? Math.max(400, Math.min(5000, Math.floor(totalHuman / humanTurns)))
-    : 800;
+    : 1000;
 
 // === Setup screen ===
 // Use static HTML setup screen instead of creating it in JS
 const setupScreen = document.getElementById("setupScreen");
 const aiCountInput = document.getElementById("aiCountInput");
 const startGameBtn = document.getElementById("startGameBtn");
+const aiOnlyCheckbox = document.getElementById("aiOnlyCheckbox");
 
 function showSetupScreen() {
   setupScreen.classList.remove("hidden");
@@ -37,27 +38,48 @@ function hideSetupScreen() {
   document.body.classList.remove("setup-active");
 }
 
+aiCountInput.addEventListener("input", () => {
+  const aiCnt = parseInt(aiCountInput.value) || 0;
+  if (aiCnt === 4) {
+    aiOnlyCheckbox.checked = true;
+    aiOnlyCheckbox.disabled = true;
+  } else if (aiCnt === 0) {
+    aiOnlyCheckbox.checked = false;
+    aiOnlyCheckbox.disabled = true;
+  } else {
+    aiOnlyCheckbox.disabled = false;
+  }
+});
+
 startGameBtn.onclick = () => {
-  const aiCnt = Math.min(3, Math.max(1, parseInt(aiCountInput.value) || 1));
+  const aiCnt = Math.min(4, Math.max(0, parseInt(aiCountInput.value) || 0));
+  const aiOnly = aiOnlyCheckbox.checked || aiCnt === 4;
   hideSetupScreen();
-  init(aiCnt);
+  init(aiCnt, aiOnly);
 };
 
 // === Initialization ===
-function init(aiCnt) {
+function init(aiCnt, aiOnly) {
   winEl.classList.add("hidden");
-  // Remove all .revealed classes from previous game
   document.querySelectorAll(".rabbit .revealed, .card.rabbit.revealed").forEach(el => el.classList.remove("revealed"));
   if (typeof aiCnt !== "number") {
     showSetupScreen();
     return;
   }
-  // Number of players = 1 human + aiCnt
-  const numPlayers = 1 + aiCnt;
+  // Number of players: if aiOnly, all players are AI; otherwise, 1 human + aiCnt AI
+  let numPlayers, playerList;
+  if (aiOnly) {
+    numPlayers = aiCnt === 0 ? 1 : aiCnt; // At least 1 player
+    playerList = [];
+    for (let i = 1; i <= numPlayers; i++) playerList.push(new VirtualPlayer(i, numPlayers));
+  } else {
+    numPlayers = 1 + aiCnt;
+    playerList = ["H"];
+    for (let i = 1; i <= aiCnt; i++) playerList.push(new VirtualPlayer(i, aiCnt));
+  }
   game = new Game(numPlayers);
   turnHistory = []; // Reset turn history on new game
-  players = ["H"];
-  for (let i = 1; i <= aiCnt; i++) players.push(new VirtualPlayer(i, aiCnt));
+  players = playerList;
   currentTurn = 0;
   render();
   updateTurn();
@@ -68,6 +90,10 @@ function init(aiCnt) {
     updateInstructions("play");
   } else {
     updateInstructions("");
+    // If no human player, trigger only the first AI move
+    if (!players.includes("H")) {
+      setTimeout(aiTurn, 1000);
+    }
   }
 }
 
@@ -257,6 +283,7 @@ function cancelDove() {
 
 // === AI turn ===
 function aiTurn() {
+  if (isGameOver()) return; // Stop if game is over
   const ai = players[currentTurn];
   // Only give AI the last 5 moves for memory
   const shortHistory = turnHistory.slice(-5);
@@ -279,6 +306,7 @@ function aiTurn() {
   }
   lock = true;
   flash(flashes, () => {
+    if (isGameOver()) return; // Stop if game is over after flash
     const doveAction = ai.moveDove(game);
     // Record dove move if any
     if (doveAction?.type === "moveDove") {
