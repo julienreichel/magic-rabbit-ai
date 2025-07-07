@@ -307,7 +307,7 @@ function aiTurn() {
   lock = true;
   flash(flashes, () => {
     if (isGameOver()) return; // Stop if game is over after flash
-    const doveAction = ai.moveDove(game);
+    const doveAction = ai.moveDove(game, turnHistory);
     // Record dove move if any
     if (doveAction?.type === "moveDove") {
       turnHistory.push({ player: ai.id, action: doveAction });
