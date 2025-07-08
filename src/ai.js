@@ -160,15 +160,17 @@ export class VirtualPlayer {
         let action = this._moveDoveToNext(game, dest);
         if (action) return action;
       }
-      // 2. Check the hat with this.memVal, if not visible, just try to move the dove at dest (if any)
+      // 2. Check the hat with this.memVal, if not visible, pick a random dove to move
       const hatIdx = game.piles.findIndex((p) => p.hatNum === this.memVal && !p.hasDove);
       if (hatIdx === -1) {
+        const doveIdx = this._pickDoveIdx(game);
         // Try to move a dove but not on dest
-        let action = this._moveDoveToNext(game, dest, dest);
+        let action = this._moveDoveToNext(game, doveIdx, dest);
         if (action) return action;
       }
     }
     // 3. Check if the AI just made a switch or peek that put the right rabbit under the right hat in the right column
+    let targetIdx = null;
     const last = turnHistory[turnHistory.length - 1];
     if (last?.action.type === "swapPile" || last?.action.type === "swapHat") {
       const dest = last.action.i2;
@@ -182,7 +184,7 @@ export class VirtualPlayer {
       }
     }
     if (targetIdx !== null) {
-      doveIdx = this._pickDoveIdx(game);
+      const doveIdx = this._pickDoveIdx(game);
       game.moveDove(doveIdx, targetIdx);
       return { type: "moveDove", from: doveIdx, to: targetIdx };
     }
