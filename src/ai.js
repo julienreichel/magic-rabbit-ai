@@ -27,53 +27,38 @@ export class VirtualPlayer {
     return lastPeek;
   }
 
-  _findRememberedAction(game, ignoreDove = false) {
+  _movePeekedCard(game) {
     if (this.memIdx === -1) return null;
     const val = this.memVal;
     let idx = this.memIdx;
     if (game.piles[idx].rabbitNum !== val) {
       idx = game.piles.findIndex((p) => p.rabbitNum === val);
     }
-    if (!ignoreDove && game.piles[idx].hasDove) {
+    if (game.piles[idx].hasDove) {
       return null;
     }
     const dest = val - 1;
     if (
       idx !== dest &&
-      (!game.piles[dest].hasDove || ignoreDove)
+      !game.piles[dest].hasDove
     ) {
+      game.swapPiles(idx, dest);
+      this.memIdx = dest;
+      // If after applying, the card is in the right place with the right hat, clear memory
+      if (game.piles[this.memIdx].hatNum === this.memVal) {
+        this.clear();
+      }
       return { type: "swapPile", i1: idx, i2: dest };
     }
     if (idx === dest && game.piles[dest].hatNum !== val) {
       const j = game.piles.findIndex((p, i) => p.hatNum === val && !p.hasDove);
       if (j !== -1) {
+        game.swapHats(dest, j);
+        this.clear();
         return { type: "swapHat", i1: dest, i2: j };
-      } else if (ignoreDove) {
-        // If j == -1, it means the hat is hidden under a dove. Pick any dove at random.
-        const allDoves = game.piles.map((p, i) => p.hasDove ? i : -1).filter(i => i !== -1);
-        const randomDoveIdx = allDoves[Math.floor(Math.random() * allDoves.length)];
-        return { type: "swapHat", i1: dest, i2: randomDoveIdx };
       }
     }
     return null;
-  }
-
-  _applyRememberedAction(game, action) {
-    if (!action) return;
-    if (action.type === "swapPile") {
-      game.swapPiles(action.i1, action.i2);
-      this.memIdx = action.i2;
-    } else if (action.type === "swapHat") {
-      game.swapHats(action.i1, action.i2);
-    }
-    // If after applying, the card is in the right place with the right hat, clear memory
-    const idx = this.memIdx;
-    if (
-      idx !== -1 &&
-      game.piles[idx].hatNum === this.memVal
-    ) {
-      this.clear();
-    }
   }
 
   _findNextPeekIdx(game, lastPeek, skipCorrectHat = false) {
@@ -104,9 +89,8 @@ export class VirtualPlayer {
 
   takeAction(game, turnHistory) {
     this.round++;
-    const remembered = this._findRememberedAction(game);
+    const remembered = this._movePeekedCard(game);
     if (remembered) {
-      this._applyRememberedAction(game, remembered);
       return remembered;
     }
     const lastPeek = this._findLastPeek(turnHistory);
@@ -119,10 +103,26 @@ export class VirtualPlayer {
     }
     return { type: "pass" };
   }
-  _moveToNext(game, fromIdx, onlyCorrectHat = false) {
+  _moveDoveToNext(game, fromIdx, forbiddenIdx = null) {
+    // First try only correct hats
     for (let offset = 1; offset < 9; offset++) {
       let i = (fromIdx - offset + 9) % 9;
-      if (!game.piles[i].hasDove && (!onlyCorrectHat || game.piles[i].hatNum === i + 1)) {
+      if (
+        !game.piles[i].hasDove &&
+        game.piles[i].hatNum === i + 1 &&
+        i !== forbiddenIdx
+      ) {
+        game.moveDove(fromIdx, i);
+        return { type: "moveDove", from: fromIdx, to: i };
+      }
+    }
+    // Then try any position
+    for (let offset = 1; offset < 9; offset++) {
+      let i = (fromIdx - offset + 9) % 9;
+      if (
+        !game.piles[i].hasDove &&
+        i !== forbiddenIdx
+      ) {
         game.moveDove(fromIdx, i);
         return { type: "moveDove", from: fromIdx, to: i };
       }
@@ -153,24 +153,22 @@ export class VirtualPlayer {
   }
 
   moveDove(game, turnHistory = []) {
-    // 1. Check for remembered action (needed piles for next move), ignore dove presence
-    const remembered = this._findRememberedAction(game, true);
-    let doveIdx = null, targetIdx = null;
-    if (remembered) {
-      // If dove is on a pile needed for the next move
-      if (game.piles[remembered.i1]?.hasDove) {
-        doveIdx = remembered.i1;
-      } else if (game.piles[remembered.i2]?.hasDove) {
-        doveIdx = remembered.i2;
-      }
-      if (doveIdx !== null) {
-        let action = this._moveToNext(game, doveIdx, true);
+    // 1. Check the column at position this.memVal - 1, if occupied by a dove, then move the dove
+    if (this.memVal !== null) {
+      const dest = this.memVal - 1;
+      if (game.piles[dest]?.hasDove) {
+        let action = this._moveDoveToNext(game, dest);
         if (action) return action;
-        action = this._moveToNext(game, doveIdx, false);
+      }
+      // 2. Check the hat with this.memVal, if not visible, just try to move the dove at dest (if any)
+      const hatIdx = game.piles.findIndex((p) => p.hatNum === this.memVal && !p.hasDove);
+      if (hatIdx === -1) {
+        // Try to move a dove but not on dest
+        let action = this._moveDoveToNext(game, dest, dest);
         if (action) return action;
       }
     }
-    // 2. Check if the AI just made a switch or peek that put the right rabbit under the right hat in the right column
+    // 3. Check if the AI just made a switch or peek that put the right rabbit under the right hat in the right column
     const last = turnHistory[turnHistory.length - 1];
     if (last?.action.type === "swapPile" || last?.action.type === "swapHat") {
       const dest = last.action.i2;
