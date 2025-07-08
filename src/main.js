@@ -48,8 +48,7 @@ function showSetupScreen() {
   document.body.classList.add("setup-active");
   // Hide overlays and clear stats display
   winEl.classList.add("hidden");
-  const idealStats = document.getElementById("idealStats");
-  if (idealStats) idealStats.innerHTML = "";
+  clearStatsDisplay();
 }
 function hideSetupScreen() {
   setupScreen.classList.add("hidden");
@@ -86,6 +85,8 @@ startGameBtn.onclick = () => {
 function init(aiCnt, aiOnly) {
   winEl.classList.add("hidden");
   document.querySelectorAll(".rabbit .revealed, .card.rabbit.revealed").forEach(el => el.classList.remove("revealed"));
+  clearStatsDisplay();
+  lock = false;
   if (typeof aiCnt !== "number") {
     showSetupScreen();
     return;
@@ -125,17 +126,24 @@ function init(aiCnt, aiOnly) {
 function render() {
   board.innerHTML = "";
   const gameOver = checkWin() || timerEl.textContent === "Time: 0s";
+  renderBoard(gameOver);
+  if (checkWin()) {
+    handleGameWin();
+  }
+}
+
+function renderBoard(gameOver) {
   game.piles.forEach((p, i) => {
     const pile = document.createElement("div");
     pile.className = "pile" + (p.hasDove ? " blocked" : "");
     // Hat
-    const hat = card(`🎩<span class=num>${p.hatNum}</span>`, "card hat");
-    if (!gameOver) hat.onclick = (e) => humanHat(i, hat);
+    const hat = card(`🎩<span class=num>${p.hatNum}</span>`, "card hat");$
+    hat.onclick = (e) => humanHat(i, hat);
     // Dove (if present) - will be styled to overlay the hat and hide the number
     let dove = null;
     if (p.hasDove) {
       dove = card("🕊️", "card doveToken");
-      if (!gameOver) dove.onclick = (e) => humanDove(i, dove);
+      dove.onclick = (e) => humanDove(i, dove);
       pile.appendChild(hat);
       pile.appendChild(dove); // Add dove after hat so it overlays
       // Hide the hat number
@@ -149,61 +157,64 @@ function render() {
       `🐇<span class=num${gameOver ? " revealed" : ""}>${p.rabbitNum}</span>`,
       "card rabbit" + (gameOver ? " revealed" : "")
     );
-    if (!gameOver) {
-      rabbit.onclick = (e) => humanRabbit(i, rabbit);
-      rabbit.ondblclick = (e) => reveal(rabbit);
-    }
+    
+    rabbit.onclick = (e) => humanRabbit(i, rabbit);
+    rabbit.ondblclick = (e) => reveal(rabbit);
+    
     pile.appendChild(rabbit);
     board.appendChild(pile);
   });
-  if (checkWin()) {
-    clearInterval(timerInt);
-    // Count turns and dove moves
-    let mainMoves = 0, doveMoves = 0;
-    for (const t of turnHistory) {
-      if (t.action.type === "moveDove") doveMoves++;
-      else mainMoves++;
+}
+
+function handleGameWin() {
+  clearInterval(timerInt);
+  // Count turns and dove moves
+  let mainMoves = 0, doveMoves = 0;
+  for (const t of turnHistory) {
+    if (t.action.type === "moveDove") doveMoves++;
+    else mainMoves++;
+  }
+  // Record stats
+  const numPlayers = players.length;
+  const delta = mainMoves - game.minTotalMoves;
+  recordGameStats(numPlayers, delta, doveMoves);
+
+  // Multi-run logic: if in multi-run mode, auto-restart until done
+  if (multiRunTarget) {
+    multiRunCount++;
+    if (multiRunCount < multiRunTarget) {
+      setTimeout(() => {
+        init(multiRunParams.aiCnt, true);
+      }, multiRunParams.waitTime * 5);
+      return; // Don't show win panel yet
     }
-    // Record stats
-    const numPlayers = players.length;
-    const delta = mainMoves - game.minTotalMoves;
-    recordGameStats(numPlayers, delta, doveMoves);
-    
-    // Multi-run logic: if in multi-run mode, auto-restart until done
-    if (multiRunTarget) {
-      multiRunCount++;
-      if (multiRunCount < multiRunTarget) {
-        setTimeout(() => {
-          init(multiRunParams.aiCnt, true);
-        }, multiRunParams.waitTime * 5);
-        return; // Don't show win panel yet
-      }
-    }
-    winEl.classList.remove("hidden");
-    
-    // Update stats in win overlay
-    const turnsStat = document.getElementById("turnsStat");
-    const doveStat = document.getElementById("doveStat");
-    if (turnsStat) turnsStat.textContent = mainMoves;
-    if (doveStat) doveStat.textContent = doveMoves;
-    // Display ideal move stats
-    const idealStats = document.getElementById("idealStats");
-    if (idealStats) {
-      idealStats.innerHTML = `<b>Ideal moves:</b> <span>${game.minTotalMoves}</span>`;
-      idealStats.style.marginTop = "10px";
-      // Add stats table
-      idealStats.innerHTML += renderStatsTable();
-    }
-  } else {
-    // Hide stats if not game over
-    const turnsStat = document.getElementById("turnsStat");
-    const doveStat = document.getElementById("doveStat");
-    if (turnsStat) turnsStat.textContent = "";
-    if (doveStat) doveStat.textContent = "";
-    const idealStats = document.getElementById("idealStats");
-    if (idealStats) idealStats.innerHTML = "";
+  }
+  winEl.classList.remove("hidden");
+
+  // Update stats in win overlay
+  const turnsStat = document.getElementById("turnsStat");
+  const doveStat = document.getElementById("doveStat");
+  if (turnsStat) turnsStat.textContent = mainMoves;
+  if (doveStat) doveStat.textContent = doveMoves;
+  // Display ideal move stats
+  const idealStats = document.getElementById("idealStats");
+  if (idealStats) {
+    idealStats.innerHTML = `<b>Ideal moves:</b> <span>${game.minTotalMoves}</span>`;
+    idealStats.style.marginTop = "10px";
+    // Add stats table
+    idealStats.innerHTML += renderStatsTable();
   }
 }
+
+function clearStatsDisplay() {
+  const turnsStat = document.getElementById("turnsStat");
+  const doveStat = document.getElementById("doveStat");
+  if (turnsStat) turnsStat.textContent = "";
+  if (doveStat) doveStat.textContent = "";
+  const idealStats = document.getElementById("idealStats");
+  if (idealStats) idealStats.innerHTML = "";
+}
+
 function card(html, cls) {
   const div = document.createElement("div");
   div.className = cls;
