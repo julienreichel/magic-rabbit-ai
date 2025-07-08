@@ -95,11 +95,11 @@ function init(aiCnt, aiOnly) {
   if (aiOnly) {
     numPlayers = aiCnt === 0 ? 1 : aiCnt; // At least 1 player
     playerList = [];
-    for (let i = 1; i <= numPlayers; i++) playerList.push(new VirtualPlayer(i, numPlayers));
+    for (let i = 1; i <= numPlayers; i++) playerList.push(new VirtualPlayer(i));
   } else {
     numPlayers = 1 + aiCnt;
     playerList = ["H"];
-    for (let i = 1; i <= aiCnt; i++) playerList.push(new VirtualPlayer(i, aiCnt));
+    for (let i = 1; i <= aiCnt; i++) playerList.push(new VirtualPlayer(i));
   }
   game = new Game(numPlayers);
   turnHistory = []; // Reset turn history on new game

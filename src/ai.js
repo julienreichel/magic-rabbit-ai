@@ -1,7 +1,6 @@
 export class VirtualPlayer {
-  constructor(id, total) {
+  constructor(id) {
     this.id = id;
-    this.total = total;
     this.memIdx = -1;
     this.memVal = null;
     this.lastPeek = null; // {idx, val}
