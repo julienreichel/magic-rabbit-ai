@@ -540,14 +540,13 @@ function recordGameStats(numPlayers, delta, doveMoves) {
 function renderStatsTable() {
   const stats = loadStats();
   let html = '<table class="stats-table"><thead><tr><th>Players</th>';
-  // Find all deltas used, but group all >20 into one column, and all <0 as 0
+  // Find all deltas used, but group all >20 into one column
   const allDeltas = new Set();
   let hasOver20 = false;
   for (const n of [1,2,3,4]) {
     if (stats[n]) for (const d in stats[n]) {
       const numD = Number(d);
       if (numD > 20) hasOver20 = true;
-      else if (numD < 0) allDeltas.add(0);
       else allDeltas.add(numD);
     }
   }
@@ -558,15 +557,7 @@ function renderStatsTable() {
   for (const n of [1,2,3,4]) {
     html += `<tr><td>${n}</td>`;
     for (const d of deltas) {
-      // Sum all stats[n][d] where d==0 or d<0 for Δ0 column
-      let cell = 0;
-      if (d === 0) {
-        for (const k in stats[n]) {
-          if (Number(k) <= 0) cell += stats[n][k].count;
-        }
-      } else {
-        cell = stats[n]?.[d]?.count || 0;
-      }
+      let cell = stats[n]?.[d]?.count || 0;
       html += `<td>${cell}</td>`;
     }
     // Sum all deltas > 20
