@@ -32,4 +32,4 @@ The goal: correctly align rabbits and hats from 1 to 9 — before the timer runs
 
 Inspired by the board game **Magic Rabbit** (Lumberjacks Studio).
 
-Project created by [Julien Reichel](https://github.com/julienreichel)
+**This project was integrally written by an AI (GitHub Copilot) using peer programming. No human directly wrote or edited the code; all implementation, refactoring, and improvements were performed by the AI.**
