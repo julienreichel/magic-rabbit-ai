@@ -363,32 +363,73 @@ function flash(elems, cb) {
 
 function endTurn() {
   if (controller.players[controller.currentTurn] === "H") {
-    controller.totalHuman += Date.now() - controller.humanStart;
-    controller.humanTurns++;
+    updateHumanStats();
   }
+  resetTurnState();
+  updateTurnInfo(controller.players, controller.currentTurn);
+  handleNextPlayerInstructions();
+}
+
+function updateHumanStats() {
+  controller.totalHuman += Date.now() - controller.humanStart;
+  controller.humanTurns++;
+}
+
+function resetTurnState() {
   controller.selHat = controller.selRab = null;
   cancelDove();
   controller.hasPlayed = false;
   controller.currentTurn = (controller.currentTurn + 1) % controller.players.length;
-  updateTurnInfo(controller.players, controller.currentTurn);
-  // Show or hide instructions based on whose turn it is
+}
+
+function handleNextPlayerInstructions() {
   if (controller.players[controller.currentTurn] === "H") {
     updateInstructions("play", controller.players, controller.currentTurn);
     controller.humanStart = Date.now();
   } else {
     updateInstructions("");
-    // Only let AI play if the game is not over
     if (!checkWin()) {
       setTimeout(aiTurn, controller.players.includes("H") ? avgHuman() : WAIT_TIME);
     }
   }
 }
 
-function updateTurn() {
-  if (controller.players[controller.currentTurn] === "H") {
-    turnInfo.textContent = "Your turn";
+function handleGameWin() {
+  if (controller.statsRecorded) return;
+  controller.statsRecorded = true;
+  gameTimer?.stop();
+  const { mainMoves, doveMoves } = countMoves(controller.turnHistory);
+  const numPlayers = controller.players.length;
+  const delta = mainMoves - controller.game.minTotalMoves;
+  recordGameStats(numPlayers, delta, doveMoves);
+  if (controller.multiRunTarget) {
+    handleMultiRun(mainMoves, doveMoves);
+    return;
+  }
+  showWinOverlay(mainMoves, doveMoves, controller.game.minTotalMoves, renderStatsTable(loadStats()));
+}
+
+function countMoves(turnHistory) {
+  let mainMoves = 0, doveMoves = 0;
+  for (const t of turnHistory) {
+    if (t.action.type === "moveDove") doveMoves++;
+    else mainMoves++;
+  }
+  return { mainMoves, doveMoves };
+}
+
+function handleMultiRun(mainMoves, doveMoves) {
+  controller.multiRunCount++;
+  if (controller.multiRunCount < controller.multiRunTarget) {
+    setTimeout(() => {
+      controller.statsRecorded = false;
+      init(controller.multiRunParams.aiCnt, true);
+    }, WAIT_TIME * 5);
   } else {
-    turnInfo.textContent = `AI ${controller.players[controller.currentTurn].id}`;
+    controller.multiRunActive = false;
+    controller.multiRunTarget = 0;
+    controller.multiRunParams = null;
+    showWinOverlay(mainMoves, doveMoves, controller.game.minTotalMoves, renderStatsTable(loadStats()));
   }
 }
 
@@ -496,35 +537,6 @@ function startMultiRun() {
   hideWinOverlay();
   controller.multiRunActive = false; // Reset before starting new multi-run sequence
   init(controller.multiRunParams.aiCnt, true);
-}
-
-function handleGameWin() {
-  if (controller.statsRecorded) return;
-  controller.statsRecorded = true;
-  gameTimer?.stop();
-  let mainMoves = 0, doveMoves = 0;
-  for (const t of controller.turnHistory) {
-    if (t.action.type === "moveDove") doveMoves++;
-    else mainMoves++;
-  }
-  const numPlayers = controller.players.length;
-  const delta = mainMoves - controller.game.minTotalMoves;
-  recordGameStats(numPlayers, delta, doveMoves);
-  if (controller.multiRunTarget) {
-    controller.multiRunCount++;
-    if (controller.multiRunCount < controller.multiRunTarget) {
-      setTimeout(() => {
-        controller.statsRecorded = false; // Reset for next game
-        init(controller.multiRunParams.aiCnt, true);
-      }, WAIT_TIME * 5);
-      return;
-    } else {
-      controller.multiRunActive = false;
-      controller.multiRunTarget = 0;
-      controller.multiRunParams = null;
-    }
-  }
-  showWinOverlay(mainMoves, doveMoves, controller.game.minTotalMoves, renderStatsTable(loadStats()));
 }
 
 document.querySelector("#resetBtn").onclick = () => {
