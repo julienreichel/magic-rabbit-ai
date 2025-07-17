@@ -99,12 +99,8 @@ function resetGameState() {
   hideWinOverlay();
   clearStatsDisplay();
   controller.lock = false;
-  controller.selHat = null;
-  controller.selRab = null;
-  controller.selDove = null;
-  controller.doveTimer = null;
-  controller.hasPlayed = false;
   controller.statsRecorded = false; // Reset guard at game start
+  resetTurnState(); // Use central turn state reset
 }
 
 // === Initialization ===
@@ -370,9 +366,14 @@ function updateHumanStats() {
 function resetTurnState() {
   controller.selHat = null;
   controller.selRab = null;
+  controller.selDove = null;
   controller.hasPlayed = false;
-  controller.currentTurn = (controller.currentTurn + 1) % controller.players.length;
-  cancelDove();
+  controller.doveTimer = null;
+  if (Array.isArray(controller.players) && controller.players.length > 0) {
+    controller.currentTurn = (controller.currentTurn + 1) % controller.players.length;
+  } else {
+    controller.currentTurn = 0;
+  }
   clearAllHighlights();
 }
 
