@@ -15,34 +15,50 @@ export function card(html, cls) {
   return div;
 }
 
+function createHat(p, i, humanHat) {
+  const hat = card(`🎩<span class=num>${p.hatNum}</span>`, "card hat");
+  hat.onclick = (e) => humanHat(i, hat);
+  return hat;
+}
+
+function createDove(p, i, humanDove, hat) {
+  const dove = card("🕊️", "card doveToken");
+  dove.onclick = (e) => humanDove(i, dove);
+  if (hat) {
+    const numSpan = hat.querySelector('.num');
+    if (numSpan) numSpan.classList.add('dove-hidden');
+  }
+  return dove;
+}
+
+function createRabbit(p, i, gameOver, humanRabbit, reveal) {
+  const rabbit = card(
+    `🐇<span class=num${gameOver ? " revealed" : ""}>${p.rabbitNum}</span>`,
+    "card rabbit" + (gameOver ? " revealed" : "")
+  );
+  rabbit.onclick = (e) => humanRabbit(i, rabbit);
+  rabbit.ondblclick = (e) => reveal(rabbit);
+  return rabbit;
+}
+
+function renderPile(p, i, gameOver, humanRabbit, humanHat, humanDove, reveal) {
+  const pile = document.createElement("div");
+  pile.className = "pile" + (p.hasDove ? " blocked" : "");
+  const hat = createHat(p, i, humanHat);
+  pile.appendChild(hat);
+  if (p.hasDove) {
+    const dove = createDove(p, i, humanDove, hat);
+    pile.appendChild(dove);
+  }
+  const rabbit = createRabbit(p, i, gameOver, humanRabbit, reveal);
+  pile.appendChild(rabbit);
+  return pile;
+}
+
 export function renderBoard(game, gameOver, humanRabbit, humanHat, humanDove, reveal) {
   board.innerHTML = "";
   game.piles.forEach((p, i) => {
-    const pile = document.createElement("div");
-    pile.className = "pile" + (p.hasDove ? " blocked" : "");
-    // Hat
-    const hat = card(`🎩<span class=num>${p.hatNum}</span>`, "card hat");
-    hat.onclick = (e) => humanHat(i, hat);
-    // Dove (if present)
-    let dove = null;
-    if (p.hasDove) {
-      dove = card("🕊️", "card doveToken");
-      dove.onclick = (e) => humanDove(i, dove);
-      pile.appendChild(hat);
-      pile.appendChild(dove);
-      const numSpan = hat.querySelector('.num');
-      if (numSpan) numSpan.classList.add('dove-hidden');
-    } else {
-      pile.appendChild(hat);
-    }
-    // Rabbit
-    const rabbit = card(
-      `🐇<span class=num${gameOver ? " revealed" : ""}>${p.rabbitNum}</span>`,
-      "card rabbit" + (gameOver ? " revealed" : "")
-    );
-    rabbit.onclick = (e) => humanRabbit(i, rabbit);
-    rabbit.ondblclick = (e) => reveal(rabbit);
-    pile.appendChild(rabbit);
+    const pile = renderPile(p, i, gameOver, humanRabbit, humanHat, humanDove, reveal);
     board.appendChild(pile);
   });
 }

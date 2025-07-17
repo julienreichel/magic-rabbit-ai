@@ -1,11 +1,10 @@
-import { Game, shuffle, checkWin, isGameOver, createGameTimer } from "./game.js";
+import { Game, checkWin, isGameOver} from "./game.js";
 import { VirtualPlayer } from "./ai.js";
 import {
-  $, board, timerEl, turnInfo, winEl,
-  card, renderBoard, showSetupScreen, hideSetupScreen,
+  $, board, timerEl,
+  renderBoard, showSetupScreen, hideSetupScreen,
   clearStatsDisplay, updateInstructions, renderStatsTable,
   showWinOverlay, updateTurnInfo, updateTimer, hideWinOverlay,
-  highlightToken, clearTokenHighlights,
   highlightHat, highlightRabbit, highlightDove,
   clearHatHighlights, clearRabbitHighlights, clearDoveHighlights
 } from "./view.js";
@@ -39,7 +38,6 @@ let WAIT_TIME = 1000; // Default: 1s
 
 // === Setup screen ===
 // Use static HTML setup screen instead of creating it in JS
-const setupScreen = document.getElementById("setupScreen");
 const aiCountInput = document.getElementById("aiCountInput");
 const startGameBtn = document.getElementById("startGameBtn");
 const aiOnlyCheckbox = document.getElementById("aiOnlyCheckbox");
@@ -154,15 +152,7 @@ function checkAndHandleWin() {
 // Remove legacy globals: selHat, selRab, selDove, doveTimer, hasPlayed
 
 
-function humanHat(idx, dom) {
-  if (controller.lock || controller.players[controller.currentTurn] !== "H") return;
-  if (isGameOver()) return;
-  if (controller.game.piles[idx].hasDove) return;
-  if (controller.selDove !== null) {
-    moveDoveTo(idx);
-    return;
-  }
-  if (controller.hasPlayed) return;
+function handleHumanHatSelection(idx, dom) {
   if (controller.selHat === null) {
     controller.selHat = idx;
     highlightHat(idx, dom);
@@ -177,6 +167,23 @@ function humanHat(idx, dom) {
   // If clicked same hat, just clear selection
   clearAllHighlights();
   controller.selHat = null;
+}
+
+function handleHumanHatGuards(idx, dom) {
+  if (controller.lock || controller.players[controller.currentTurn] !== "H") return true;
+  if (isGameOver()) return true;
+  if (controller.game.piles[idx].hasDove) return true;
+  if (controller.selDove !== null) {
+    moveDoveTo(idx);
+    return true;
+  }
+  if (controller.hasPlayed) return true;
+  return false;
+}
+
+function humanHat(idx, dom) {
+  if (handleHumanHatGuards(idx, dom)) return;
+  handleHumanHatSelection(idx, dom);
 }
 
 function swapHatAction(idx) {
@@ -473,8 +480,6 @@ function startTimer() {
 // === Instructions box ===
 const instructionsBox = $("#instructionsBox");
 const hideBtn = $("#hideInstructionsBtn");
-const instructionsContent = $("#instructionsContent");
-let instructionsPermanentlyHidden = false;
 hideBtn.onclick = () => {
   instructionsBox.style.display = "none";
   instructionsPermanentlyHidden = true;
@@ -503,9 +508,7 @@ function recordGameStats(numPlayers, delta, doveMoves) {
 }
 
 // === Multi-run AI blitz ===
-let multiRunCount = 0;
 let multiRunTarget = 0;
-let multiRunParams = null;
 
 function showMultiRunPrompt() {
   const overlay = document.getElementById('multiRunOverlay');
