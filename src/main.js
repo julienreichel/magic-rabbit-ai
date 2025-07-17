@@ -71,7 +71,21 @@ startGameBtn.onclick = () => {
 };
 
 // === Initialization ===
-function init(aiCnt, aiOnly) {
+function setupPlayers(aiCnt, aiOnly) {
+  let numPlayers, playerList;
+  if (aiOnly) {
+    numPlayers = aiCnt === 0 ? 1 : aiCnt;
+    playerList = [];
+    for (let i = 1; i <= numPlayers; i++) playerList.push(new VirtualPlayer(i));
+  } else {
+    numPlayers = 1 + aiCnt;
+    playerList = ["H"];
+    for (let i = 1; i <= aiCnt; i++) playerList.push(new VirtualPlayer(i));
+  }
+  return { numPlayers, playerList };
+}
+
+function resetGameState() {
   hideWinOverlay();
   clearStatsDisplay();
   lock = false;
@@ -81,25 +95,21 @@ function init(aiCnt, aiOnly) {
   doveTimer = null;
   hasPlayed = false;
   statsRecorded = false; // Reset guard at game start
-  // Reset multi-run state for each game
-  if (multiRunTarget) {
-    multiRunActive = true;
-  }
+}
+
+// === Initialization ===
+function init(aiCnt, aiOnly) {
+  resetGameState();
+  if (multiRunTarget) multiRunActive = true;
   if (typeof aiCnt !== "number") {
     showSetupScreen();
     return;
   }
-  // Number of players: if aiOnly, all players are AI; otherwise, 1 human + aiCnt AI
-  let numPlayers, playerList;
-  if (aiOnly) {
-    numPlayers = aiCnt === 0 ? 1 : aiCnt; // At least 1 player
-    playerList = [];
-    for (let i = 1; i <= numPlayers; i++) playerList.push(new VirtualPlayer(i));
-  } else {
-    numPlayers = 1 + aiCnt;
-    playerList = ["H"];
-    for (let i = 1; i <= aiCnt; i++) playerList.push(new VirtualPlayer(i));
-  }
+  setupNewGame(aiCnt, aiOnly);
+}
+
+function setupNewGame(aiCnt, aiOnly) {
+  const { numPlayers, playerList } = setupPlayers(aiCnt, aiOnly);
   game = new Game(numPlayers);
   turnHistory = [];
   players = playerList;
@@ -108,12 +118,14 @@ function init(aiCnt, aiOnly) {
   updateTurnInfo(players, currentTurn);
   humanStart = Date.now();
   startTimer();
-  // Show or hide instructions based on whose turn it is at game start
+  showInitialInstructions();
+}
+
+function showInitialInstructions() {
   if (players[currentTurn] === "H") {
     updateInstructions("play", players, currentTurn);
   } else {
     updateInstructions("");
-    // If no human player, trigger only the first AI move
     if (!players.includes("H")) {
       setTimeout(aiTurn, WAIT_TIME);
     }
@@ -123,38 +135,13 @@ function init(aiCnt, aiOnly) {
 // === Rendering ===
 function render() {
   renderBoard(game, checkWin(game) || timerEl.textContent === "Time: 0s", humanRabbit, humanHat, humanDove, reveal);
+  checkAndHandleWin();
+}
+
+function checkAndHandleWin() {
   if (checkWin(game)) {
     handleGameWin();
   }
-}
-
-let multiRunActive = false;
-let statsRecorded = false; // Guard to ensure stats are only recorded once per game
-
-function handleGameWin() {
-  if (statsRecorded) return; // Prevent duplicate stats recording
-  statsRecorded = true;
-  clearInterval(timerInt);
-  let mainMoves = 0, doveMoves = 0;
-  for (const t of turnHistory) {
-    if (t.action.type === "moveDove") doveMoves++;
-    else mainMoves++;
-  }
-  const numPlayers = players.length;
-  const delta = mainMoves - game.minTotalMoves;
-  recordGameStats(numPlayers, delta, doveMoves);
-  if (multiRunTarget) {
-    multiRunCount++;
-    if (multiRunCount < multiRunTarget) {
-      setTimeout(() => {
-        init(multiRunParams.aiCnt, true);
-      }, WAIT_TIME * 5);
-      return;
-    } else {
-      multiRunActive = false;
-    }
-  }
-  showWinOverlay(mainMoves, doveMoves, game.minTotalMoves, renderStatsTable(loadStats()));
 }
 
 // === Human interaction state ===
@@ -175,24 +162,36 @@ function humanHat(idx, dom) {
   }
   if (hasPlayed) return;
   if (selHat === null) {
-    selHat = idx;
-    dom.classList.add("highlight");
+    highlightHat(idx, dom);
     return;
   }
   if (selHat !== idx) {
-    game.swapHats(selHat, idx);
-    turnHistory.push({ player: "H", action: { type: "swapHat", i1: selHat, i2: idx } });
-    hasPlayed = true;
-    render();
-    lock = true;
-    flash([piece(selHat, ".hat"), piece(idx, ".hat")], () => {
-      lock = false;
-      updateInstructions("dove", players, currentTurn);
-      startDoveAutoPass();
-    });
+    swapHatAction(idx);
   }
-  document.querySelectorAll(".hat.highlight").forEach((el) => el.classList.remove("highlight"));
+  clearHatHighlights();
   selHat = null;
+}
+
+function highlightHat(idx, dom) {
+  selHat = idx;
+  dom.classList.add("highlight");
+}
+
+function swapHatAction(idx) {
+  game.swapHats(selHat, idx);
+  turnHistory.push({ player: "H", action: { type: "swapHat", i1: selHat, i2: idx } });
+  hasPlayed = true;
+  render();
+  lock = true;
+  flash([piece(selHat, ".hat"), piece(idx, ".hat")], () => {
+    lock = false;
+    updateInstructions("dove", players, currentTurn);
+    startDoveAutoPass();
+  });
+}
+
+function clearHatHighlights() {
+  document.querySelectorAll(".hat.highlight").forEach((el) => el.classList.remove("highlight"));
 }
 
 function humanRabbit(idx, dom) {
@@ -205,29 +204,41 @@ function humanRabbit(idx, dom) {
   }
   if (hasPlayed) return;
   if (selRab === null) {
-    selRab = idx;
-    dom.classList.add("highlight");
+    highlightRabbit(idx, dom);
     return;
   }
   if (selRab !== idx) {
-    game.swapPiles(selRab, idx);
-    turnHistory.push({ player: "H", action: { type: "swapPile", i1: selRab, i2: idx } });
-    hasPlayed = true;
-    render();
-    lock = true;
-    flash([
-      piece(selRab, ".hat"),
-      piece(selRab, ".rabbit"),
-      piece(idx, ".hat"),
-      piece(idx, ".rabbit")
-    ], () => {
-      lock = false;
-      updateInstructions("dove", players, currentTurn);
-      startDoveAutoPass();
-    });
+    swapRabbitAction(idx);
   }
-  document.querySelectorAll(".rabbit.highlight").forEach((el) => el.classList.remove("highlight"));
+  clearRabbitHighlights();
   selRab = null;
+}
+
+function highlightRabbit(idx, dom) {
+  selRab = idx;
+  dom.classList.add("highlight");
+}
+
+function swapRabbitAction(idx) {
+  game.swapPiles(selRab, idx);
+  turnHistory.push({ player: "H", action: { type: "swapPile", i1: selRab, i2: idx } });
+  hasPlayed = true;
+  render();
+  lock = true;
+  flash([
+    piece(selRab, ".hat"),
+    piece(selRab, ".rabbit"),
+    piece(idx, ".hat"),
+    piece(idx, ".rabbit")
+  ], () => {
+    lock = false;
+    updateInstructions("dove", players, currentTurn);
+    startDoveAutoPass();
+  });
+}
+
+function clearRabbitHighlights() {
+  document.querySelectorAll(".rabbit.highlight").forEach((el) => el.classList.remove("highlight"));
 }
 
 function reveal(el) {
@@ -245,13 +256,13 @@ function reveal(el) {
     // Wait for dove
   }, 1000);
 }
+
 function humanDove(idx, dom) {
   if (lock || players[currentTurn] !== "H") return;
   if (isGameOver()) return;
   if (!hasPlayed) return;
   if (selDove === null) {
-    selDove = idx;
-    dom.classList.add("highlight");
+    highlightDove(idx, dom);
     return;
   }
   if (selDove === idx) {
@@ -260,6 +271,11 @@ function humanDove(idx, dom) {
     return;
   }
   moveDoveTo(idx);
+}
+
+function highlightDove(idx, dom) {
+  selDove = idx;
+  dom.classList.add("highlight");
 }
 
 
@@ -293,21 +309,18 @@ function cancelDove() {
 }
 
 // === AI turn ===
-function aiTurn() {
-  if (isGameOver()) return;
-  const ai = players[currentTurn];
-  const shortHistory = turnHistory.slice(-5);
+function processAIAction(ai, shortHistory) {
   const res = ai.takeAction(game, shortHistory);
   render();
   if (checkWin(game)) {
     handleGameWin();
-    return;
+    return true;
   }
   const flashes = [];
   if (res.type === "peek") flashes.push(piece(res.i1, ".rabbit"));
   if (res.type === "swapHat") flashes.push(piece(res.i1, ".hat"), piece(res.i2, ".hat"));
   if (res.type === "swapPile") flashes.push(piece(res.i1, ".hat"), piece(res.i1, ".rabbit"), piece(res.i2, ".hat"), piece(res.i2, ".rabbit"));
-  if (res.type === "peek" || res.type === "swapHat" || res.type === "swapPile") {
+  if (["peek", "swapHat", "swapPile"].includes(res.type)) {
     turnHistory.push({ player: ai.id, action: res });
   }
   lock = true;
@@ -325,6 +338,13 @@ function aiTurn() {
     lock = false;
     endTurn();
   });
+}
+
+function aiTurn() {
+  if (isGameOver()) return;
+  const ai = players[currentTurn];
+  const shortHistory = turnHistory.slice(-5);
+  processAIAction(ai, shortHistory);
 }
 
 // === Turn helpers ===
