@@ -194,7 +194,7 @@ function swapHatAction(idx) {
 }
 
 function clearHatHighlights() {
-  document.querySelectorAll(".hat.highlight").forEach((el) => el.classList.remove("highlight"));
+  clearHighlights(".hat.highlight");
 }
 
 function humanRabbit(idx, dom) {
@@ -252,7 +252,7 @@ function reveal(el) {
   el.classList.add("revealed");
   controller.turnHistory.push({ player: "H", action: { type: "peek", i1: Array.from(board.children).findIndex(pile => pile.querySelector(".rabbit") === el) } });
   controller.hasPlayed = true;
-  updateInstructions("dove");
+  updateInstructions("dove", controller.players, controller.currentTurn);
   startDoveAutoPass();
   setTimeout(() => {
     el.classList.remove("revealed");
@@ -305,9 +305,7 @@ function startDoveAutoPass() {
 function cancelDove() {
   clearTimeout(controller.doveTimer);
   controller.doveTimer = null;
-  document
-    .querySelectorAll(".doveToken.highlight")
-    .forEach((el) => el.classList.remove("highlight"));
+  clearHighlights(".doveToken.highlight");
   controller.selDove = null;
 }
 
@@ -395,12 +393,45 @@ function updateTurn() {
 }
 
 // === Timer & win ===
-let timerInt;
+class GameTimer {
+  constructor(duration, onTick, onEnd) {
+    this.duration = duration;
+    this.onTick = onTick;
+    this.onEnd = onEnd;
+    this.remaining = duration;
+    this.interval = null;
+  }
+
+  start() {
+    this.stop();
+    this.remaining = this.duration;
+    this.interval = setInterval(() => {
+      this.remaining--;
+      this.onTick(this.remaining);
+      if (this.remaining <= 0) {
+        this.stop();
+        this.onEnd();
+      }
+    }, 1000);
+  }
+
+  stop() {
+    if (this.interval) {
+      clearInterval(this.interval);
+      this.interval = null;
+    }
+  }
+}
+
+let gameTimer = null;
+
 function startTimer() {
-  timerInt = createGameTimer(150, (s) => updateTimer(s), () => {
+  if (gameTimer) gameTimer.stop();
+  gameTimer = new GameTimer(150, (s) => updateTimer(s), () => {
     alert("Time up!");
-    render(); // Ensure board updates to show all rabbits when time is up
+    render();
   });
+  gameTimer.start();
 }
 
 // === Instructions box ===
@@ -470,7 +501,7 @@ function startMultiRun() {
 function handleGameWin() {
   if (controller.statsRecorded) return;
   controller.statsRecorded = true;
-  clearInterval(timerInt);
+  gameTimer?.stop();
   let mainMoves = 0, doveMoves = 0;
   for (const t of controller.turnHistory) {
     if (t.action.type === "moveDove") doveMoves++;
@@ -497,17 +528,11 @@ function handleGameWin() {
 }
 
 document.querySelector("#resetBtn").onclick = () => {
-  controller.multiRunTarget = 0;
-  controller.multiRunParams = null;
-  controller.multiRunActive = false;
-  controller.multiRunCount = 0;
+  resetMultiRunState();
   showSetupScreen();
 };
 document.querySelector("#playAgainBtn").onclick = () => {
-  controller.multiRunTarget = 0;
-  controller.multiRunParams = null;
-  controller.multiRunActive = false;
-  controller.multiRunCount = 0;
+  resetMultiRunState();
   showSetupScreen();
 };
 
@@ -518,4 +543,15 @@ function avgHuman() {
     return Math.max(WAIT_TIME, Math.min(5000, Math.floor(controller.totalHuman / controller.humanTurns)));
   }
   return WAIT_TIME;
+}
+
+function resetMultiRunState() {
+  controller.multiRunTarget = 0;
+  controller.multiRunParams = null;
+  controller.multiRunActive = false;
+  controller.multiRunCount = 0;
+}
+
+function clearHighlights(selector) {
+  document.querySelectorAll(selector).forEach((el) => el.classList.remove("highlight"));
 }
