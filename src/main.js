@@ -4,7 +4,10 @@ import {
   $, board, timerEl, turnInfo, winEl,
   card, renderBoard, showSetupScreen, hideSetupScreen,
   clearStatsDisplay, updateInstructions, renderStatsTable,
-  showWinOverlay, updateTurnInfo, updateTimer, hideWinOverlay
+  showWinOverlay, updateTurnInfo, updateTimer, hideWinOverlay,
+  highlightToken, clearTokenHighlights,
+  highlightHat, highlightRabbit, highlightDove,
+  clearHatHighlights, clearRabbitHighlights, clearDoveHighlights
 } from "./view.js";
 
 // === Globals ===
@@ -165,19 +168,19 @@ function humanHat(idx, dom) {
   }
   if (controller.hasPlayed) return;
   if (controller.selHat === null) {
+    controller.selHat = idx;
     highlightHat(idx, dom);
     return;
   }
   if (controller.selHat !== idx) {
     swapHatAction(idx);
+    clearAllHighlights();
+    controller.selHat = null;
+    return;
   }
-  clearHatHighlights();
+  // If clicked same hat, just clear selection
+  clearAllHighlights();
   controller.selHat = null;
-}
-
-function highlightHat(idx, dom) {
-  controller.selHat = idx;
-  dom.classList.add("highlight");
 }
 
 function swapHatAction(idx) {
@@ -193,10 +196,6 @@ function swapHatAction(idx) {
   });
 }
 
-function clearHatHighlights() {
-  clearHighlights(".hat.highlight");
-}
-
 function humanRabbit(idx, dom) {
   if (controller.lock || controller.players[controller.currentTurn] !== "H") return;
   if (isGameOver()) return;
@@ -207,19 +206,19 @@ function humanRabbit(idx, dom) {
   }
   if (controller.hasPlayed) return;
   if (controller.selRab === null) {
+    controller.selRab = idx;
     highlightRabbit(idx, dom);
     return;
   }
   if (controller.selRab !== idx) {
     swapRabbitAction(idx);
+    clearAllHighlights();
+    controller.selRab = null;
+    return;
   }
-  clearRabbitHighlights();
+  // If clicked same rabbit, just clear selection
+  clearAllHighlights();
   controller.selRab = null;
-}
-
-function highlightRabbit(idx, dom) {
-  controller.selRab = idx;
-  dom.classList.add("highlight");
 }
 
 function swapRabbitAction(idx) {
@@ -238,10 +237,6 @@ function swapRabbitAction(idx) {
     updateInstructions("dove", controller.players, controller.currentTurn);
     startDoveAutoPass();
   });
-}
-
-function clearRabbitHighlights() {
-  document.querySelectorAll(".rabbit.highlight").forEach((el) => el.classList.remove("highlight"));
 }
 
 function reveal(el) {
@@ -265,6 +260,7 @@ function humanDove(idx, dom) {
   if (isGameOver()) return;
   if (!controller.hasPlayed) return;
   if (controller.selDove === null) {
+    controller.selDove = idx;
     highlightDove(idx, dom);
     return;
   }
@@ -275,12 +271,6 @@ function humanDove(idx, dom) {
   }
   moveDoveTo(idx);
 }
-
-function highlightDove(idx, dom) {
-  controller.selDove = idx;
-  dom.classList.add("highlight");
-}
-
 
 function moveDoveTo(target) {
   if (isGameOver()) return;
@@ -305,12 +295,13 @@ function startDoveAutoPass() {
 function cancelDove() {
   clearTimeout(controller.doveTimer);
   controller.doveTimer = null;
-  clearHighlights(".doveToken.highlight");
+  clearAllHighlights();
   controller.selDove = null;
 }
 
 // === AI turn ===
 function processAIAction(ai, shortHistory) {
+  if (!(ai instanceof VirtualPlayer)) return; // Guard: only process AI players
   const res = ai.takeAction(controller.game, shortHistory);
   render();
   if (checkWin(controller.game)) {
@@ -344,6 +335,7 @@ function processAIAction(ai, shortHistory) {
 function aiTurn() {
   if (isGameOver()) return;
   const ai = controller.players[controller.currentTurn];
+  if (!(ai instanceof VirtualPlayer)) return; // Guard: only process AI players
   const shortHistory = controller.turnHistory.slice(-5);
   processAIAction(ai, shortHistory);
 }
@@ -376,10 +368,12 @@ function updateHumanStats() {
 }
 
 function resetTurnState() {
-  controller.selHat = controller.selRab = null;
-  cancelDove();
+  controller.selHat = null;
+  controller.selRab = null;
   controller.hasPlayed = false;
   controller.currentTurn = (controller.currentTurn + 1) % controller.players.length;
+  cancelDove();
+  clearAllHighlights();
 }
 
 function handleNextPlayerInstructions() {
@@ -564,6 +558,8 @@ function resetMultiRunState() {
   controller.multiRunCount = 0;
 }
 
-function clearHighlights(selector) {
-  document.querySelectorAll(selector).forEach((el) => el.classList.remove("highlight"));
+function clearAllHighlights() {
+  clearHatHighlights();
+  clearRabbitHighlights();
+  clearDoveHighlights();
 }

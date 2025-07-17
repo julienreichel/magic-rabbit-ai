@@ -163,4 +163,27 @@ export function updateTimer(s) {
   timerEl.textContent = `Time: ${s}s`;
 }
 
+export function highlightToken(idx, dom, type) {
+  dom.classList.add("highlight");
+}
+
+export function clearTokenHighlights(type) {
+  // Remove highlights for all relevant selectors
+  if (type === "Hat") {
+    document.querySelectorAll(".hat.highlight").forEach((el) => el.classList.remove("highlight"));
+  } else if (type === "Rab") {
+    document.querySelectorAll(".rabbit.highlight").forEach((el) => el.classList.remove("highlight"));
+  } else if (type === "Dove" || type === "DoveToken") {
+    document.querySelectorAll(".doveToken.highlight").forEach((el) => el.classList.remove("highlight"));
+  }
+}
+
+export function highlightHat(idx, dom) { highlightToken(idx, dom, "Hat"); }
+export function highlightRabbit(idx, dom) { highlightToken(idx, dom, "Rab"); }
+export function highlightDove(idx, dom) { highlightToken(idx, dom, "Dove"); }
+
+export function clearHatHighlights() { clearTokenHighlights("Hat"); }
+export function clearRabbitHighlights() { clearTokenHighlights("Rab"); }
+export function clearDoveHighlights() { clearTokenHighlights("DoveToken"); }
+
 // ...other view helpers as needed...
