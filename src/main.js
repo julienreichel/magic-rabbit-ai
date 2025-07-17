@@ -1,12 +1,11 @@
-import { Game, shuffle } from "./game.js";
+import { Game, shuffle, checkWin, isGameOver, createGameTimer } from "./game.js";
 import { VirtualPlayer } from "./ai.js";
-
-// === DOM helpers ===
-const $ = (q) => document.querySelector(q);
-const board = $("#board");
-const timerEl = $("#timer");
-const turnInfo = $("#turnInfo");
-const winEl = $("#winOverlay");
+import {
+  $, board, timerEl, turnInfo, winEl,
+  card, renderBoard, showSetupScreen, hideSetupScreen,
+  clearStatsDisplay, updateInstructions, renderStatsTable,
+  showWinOverlay, updateTurnInfo, updateTimer, hideWinOverlay
+} from "./view.js";
 
 // === Globals ===
 let game,
@@ -43,18 +42,6 @@ if (waitTimeSelect) {
   };
 }
 
-function showSetupScreen() {
-  setupScreen.classList.remove("hidden");
-  document.body.classList.add("setup-active");
-  // Hide overlays and clear stats display
-  winEl.classList.add("hidden");
-  clearStatsDisplay();
-}
-function hideSetupScreen() {
-  setupScreen.classList.add("hidden");
-  document.body.classList.remove("setup-active");
-}
-
 aiCountInput.addEventListener("input", () => {
   const aiCnt = parseInt(aiCountInput.value) || 0;
   if (aiCnt === 4) {
@@ -71,7 +58,9 @@ aiCountInput.addEventListener("input", () => {
 startGameBtn.onclick = () => {
   const aiCnt = Math.min(4, Math.max(0, parseInt(aiCountInput.value) || 0));
   const aiOnly = aiOnlyCheckbox.checked || aiCnt === 4;
-  // Multi-run AI blitz prompt logic moved here
+  if (waitTimeSelect) {
+    WAIT_TIME = parseFloat(waitTimeSelect.value);
+  }
   if (aiOnly) {
     hideSetupScreen();
     showMultiRunPrompt();
@@ -83,10 +72,19 @@ startGameBtn.onclick = () => {
 
 // === Initialization ===
 function init(aiCnt, aiOnly) {
-  winEl.classList.add("hidden");
-  document.querySelectorAll(".rabbit .revealed, .card.rabbit.revealed").forEach(el => el.classList.remove("revealed"));
+  hideWinOverlay();
   clearStatsDisplay();
   lock = false;
+  selHat = null;
+  selRab = null;
+  selDove = null;
+  doveTimer = null;
+  hasPlayed = false;
+  statsRecorded = false; // Reset guard at game start
+  // Reset multi-run state for each game
+  if (multiRunTarget) {
+    multiRunActive = true;
+  }
   if (typeof aiCnt !== "number") {
     showSetupScreen();
     return;
@@ -103,16 +101,16 @@ function init(aiCnt, aiOnly) {
     for (let i = 1; i <= aiCnt; i++) playerList.push(new VirtualPlayer(i));
   }
   game = new Game(numPlayers);
-  turnHistory = []; // Reset turn history on new game
+  turnHistory = [];
   players = playerList;
   currentTurn = 0;
-  render();
-  updateTurn();
+  renderBoard(game, checkWin(), humanRabbit, humanHat, humanDove, reveal);
+  updateTurnInfo(players, currentTurn);
   humanStart = Date.now();
   startTimer();
   // Show or hide instructions based on whose turn it is at game start
   if (players[currentTurn] === "H") {
-    updateInstructions("play");
+    updateInstructions("play", players, currentTurn);
   } else {
     updateInstructions("");
     // If no human player, trigger only the first AI move
@@ -124,102 +122,39 @@ function init(aiCnt, aiOnly) {
 
 // === Rendering ===
 function render() {
-  board.innerHTML = "";
-  const gameOver = checkWin() || timerEl.textContent === "Time: 0s";
-  renderBoard(gameOver);
-  if (checkWin()) {
+  renderBoard(game, checkWin(game) || timerEl.textContent === "Time: 0s", humanRabbit, humanHat, humanDove, reveal);
+  if (checkWin(game)) {
     handleGameWin();
   }
 }
 
-function renderBoard(gameOver) {
-  game.piles.forEach((p, i) => {
-    const pile = document.createElement("div");
-    pile.className = "pile" + (p.hasDove ? " blocked" : "");
-    // Hat
-    const hat = card(`🎩<span class=num>${p.hatNum}</span>`, "card hat");$
-    hat.onclick = (e) => humanHat(i, hat);
-    // Dove (if present) - will be styled to overlay the hat and hide the number
-    let dove = null;
-    if (p.hasDove) {
-      dove = card("🕊️", "card doveToken");
-      dove.onclick = (e) => humanDove(i, dove);
-      pile.appendChild(hat);
-      pile.appendChild(dove); // Add dove after hat so it overlays
-      // Hide the hat number
-      const numSpan = hat.querySelector('.num');
-      if (numSpan) numSpan.classList.add('dove-hidden');
-    } else {
-      pile.appendChild(hat);
-    }
-    // Rabbit
-    const rabbit = card(
-      `🐇<span class=num${gameOver ? " revealed" : ""}>${p.rabbitNum}</span>`,
-      "card rabbit" + (gameOver ? " revealed" : "")
-    );
-    
-    rabbit.onclick = (e) => humanRabbit(i, rabbit);
-    rabbit.ondblclick = (e) => reveal(rabbit);
-    
-    pile.appendChild(rabbit);
-    board.appendChild(pile);
-  });
-}
+let multiRunActive = false;
+let statsRecorded = false; // Guard to ensure stats are only recorded once per game
 
 function handleGameWin() {
+  if (statsRecorded) return; // Prevent duplicate stats recording
+  statsRecorded = true;
   clearInterval(timerInt);
-  // Count turns and dove moves
   let mainMoves = 0, doveMoves = 0;
   for (const t of turnHistory) {
     if (t.action.type === "moveDove") doveMoves++;
     else mainMoves++;
   }
-  // Record stats
   const numPlayers = players.length;
   const delta = mainMoves - game.minTotalMoves;
   recordGameStats(numPlayers, delta, doveMoves);
-
-  // Multi-run logic: if in multi-run mode, auto-restart until done
   if (multiRunTarget) {
     multiRunCount++;
     if (multiRunCount < multiRunTarget) {
       setTimeout(() => {
         init(multiRunParams.aiCnt, true);
-      }, multiRunParams.waitTime * 5);
-      return; // Don't show win panel yet
+      }, WAIT_TIME * 5);
+      return;
+    } else {
+      multiRunActive = false;
     }
   }
-  winEl.classList.remove("hidden");
-
-  // Update stats in win overlay
-  const turnsStat = document.getElementById("turnsStat");
-  const doveStat = document.getElementById("doveStat");
-  if (turnsStat) turnsStat.textContent = mainMoves;
-  if (doveStat) doveStat.textContent = doveMoves;
-  // Display ideal move stats
-  const idealStats = document.getElementById("idealStats");
-  if (idealStats) {
-    idealStats.innerHTML = `<b>Ideal moves:</b> <span>${game.minTotalMoves}</span>`;
-    idealStats.style.marginTop = "10px";
-    // Add stats table
-    idealStats.innerHTML += renderStatsTable();
-  }
-}
-
-function clearStatsDisplay() {
-  const turnsStat = document.getElementById("turnsStat");
-  const doveStat = document.getElementById("doveStat");
-  if (turnsStat) turnsStat.textContent = "";
-  if (doveStat) doveStat.textContent = "";
-  const idealStats = document.getElementById("idealStats");
-  if (idealStats) idealStats.innerHTML = "";
-}
-
-function card(html, cls) {
-  const div = document.createElement("div");
-  div.className = cls;
-  div.innerHTML = html;
-  return div;
+  showWinOverlay(mainMoves, doveMoves, game.minTotalMoves, renderStatsTable(loadStats()));
 }
 
 // === Human interaction state ===
@@ -233,14 +168,12 @@ let hasPlayed = false;
 function humanHat(idx, dom) {
   if (lock || players[currentTurn] !== "H") return;
   if (isGameOver()) return;
-  // Prevent selecting a hat under a dove
   if (game.piles[idx].hasDove) return;
   if (selDove !== null) {
     moveDoveTo(idx);
     return;
   }
-  if (hasPlayed) return; // Prevent more than one move
-  
+  if (hasPlayed) return;
   if (selHat === null) {
     selHat = idx;
     dom.classList.add("highlight");
@@ -254,28 +187,23 @@ function humanHat(idx, dom) {
     lock = true;
     flash([piece(selHat, ".hat"), piece(idx, ".hat")], () => {
       lock = false;
-      updateInstructions("dove");
+      updateInstructions("dove", players, currentTurn);
       startDoveAutoPass();
-      // Don't end turn here, wait for dove
     });
   }
-  document
-    .querySelectorAll(".hat.highlight")
-    .forEach((el) => el.classList.remove("highlight"));
+  document.querySelectorAll(".hat.highlight").forEach((el) => el.classList.remove("highlight"));
   selHat = null;
 }
 
 function humanRabbit(idx, dom) {
   if (lock || players[currentTurn] !== "H") return;
   if (isGameOver()) return;
-  // Prevent selecting a rabbit under a dove
   if (game.piles[idx].hasDove) return;
   if (selDove !== null) {
     moveDoveTo(idx);
     return;
   }
-  if (hasPlayed) return; // Prevent more than one move
-  
+  if (hasPlayed) return;
   if (selRab === null) {
     selRab = idx;
     dom.classList.add("highlight");
@@ -287,24 +215,18 @@ function humanRabbit(idx, dom) {
     hasPlayed = true;
     render();
     lock = true;
-    flash(
-      [
-        piece(selRab, ".hat"),
-        piece(selRab, ".rabbit"),
-        piece(idx, ".hat"),
-        piece(idx, ".rabbit"),
-      ],
-      () => {
-        lock = false;
-        updateInstructions("dove");
-        startDoveAutoPass();
-        // Don't end turn here, wait for dove
-      }
-    );
+    flash([
+      piece(selRab, ".hat"),
+      piece(selRab, ".rabbit"),
+      piece(idx, ".hat"),
+      piece(idx, ".rabbit")
+    ], () => {
+      lock = false;
+      updateInstructions("dove", players, currentTurn);
+      startDoveAutoPass();
+    });
   }
-  document
-    .querySelectorAll(".rabbit.highlight")
-    .forEach((el) => el.classList.remove("highlight"));
+  document.querySelectorAll(".rabbit.highlight").forEach((el) => el.classList.remove("highlight"));
   selRab = null;
 }
 
@@ -326,19 +248,17 @@ function reveal(el) {
 function humanDove(idx, dom) {
   if (lock || players[currentTurn] !== "H") return;
   if (isGameOver()) return;
-  if (!hasPlayed) return; // Only allow dove after a move
+  if (!hasPlayed) return;
   if (selDove === null) {
     selDove = idx;
     dom.classList.add("highlight");
     return;
   }
-  // If clicking the same dove again, pass
   if (selDove === idx) {
     cancelDove();
     endTurn();
     return;
   }
-  // If clicking a rabbit or hat after dove is selected, move the dove
   moveDoveTo(idx);
 }
 
@@ -374,36 +294,34 @@ function cancelDove() {
 
 // === AI turn ===
 function aiTurn() {
-  if (isGameOver()) return; // Stop if game is over
+  if (isGameOver()) return;
   const ai = players[currentTurn];
-  // Only give AI the last 5 moves for memory
   const shortHistory = turnHistory.slice(-5);
-  const res = ai.takeAction(game, shortHistory); // Pass shortHistory to AI
+  const res = ai.takeAction(game, shortHistory);
   render();
+  if (checkWin(game)) {
+    handleGameWin();
+    return;
+  }
   const flashes = [];
   if (res.type === "peek") flashes.push(piece(res.i1, ".rabbit"));
-  if (res.type === "swapHat")
-    flashes.push(piece(res.i1, ".hat"), piece(res.i2, ".hat"));
-  if (res.type === "swapPile")
-    flashes.push(
-      piece(res.i1, ".hat"),
-      piece(res.i1, ".rabbit"),
-      piece(res.i2, ".hat"),
-      piece(res.i2, ".rabbit")
-    );
-  // Record AI action in turnHistory
+  if (res.type === "swapHat") flashes.push(piece(res.i1, ".hat"), piece(res.i2, ".hat"));
+  if (res.type === "swapPile") flashes.push(piece(res.i1, ".hat"), piece(res.i1, ".rabbit"), piece(res.i2, ".hat"), piece(res.i2, ".rabbit"));
   if (res.type === "peek" || res.type === "swapHat" || res.type === "swapPile") {
     turnHistory.push({ player: ai.id, action: res });
   }
   lock = true;
   flash(flashes, () => {
-    if (isGameOver()) return; // Stop if game is over after flash
+    if (isGameOver()) return;
     const doveAction = ai.moveDove(game, turnHistory);
-    // Record dove move if any
     if (doveAction?.type === "moveDove") {
       turnHistory.push({ player: ai.id, action: doveAction });
     }
     render();
+    if (checkWin(game)) {
+      handleGameWin();
+      return;
+    }
     lock = false;
     endTurn();
   });
@@ -431,10 +349,10 @@ function endTurn() {
   cancelDove();
   hasPlayed = false;
   currentTurn = (currentTurn + 1) % players.length;
-  updateTurn();
+  updateTurnInfo(players, currentTurn);
   // Show or hide instructions based on whose turn it is
   if (players[currentTurn] === "H") {
-    updateInstructions("play");
+    updateInstructions("play", players, currentTurn);
     humanStart = Date.now();
   } else {
     updateInstructions("");
@@ -456,26 +374,10 @@ function updateTurn() {
 // === Timer & win ===
 let timerInt;
 function startTimer() {
-  let s = 150;
-  timerEl.textContent = `Time: ${s}s`;
-  clearInterval(timerInt);
-  timerInt = setInterval(() => {
-    s--;
-    timerEl.textContent = `Time: ${s}s`;
-    if (s <= 0) {
-      clearInterval(timerInt);
-      alert("Time up!");
-      render(); // Ensure board updates to show all rabbits when time is up
-    }
-  }, 1000);
-}
-function checkWin() {
-  return game.piles.every(
-    (p, i) => p.rabbitNum === i + 1 && p.hatNum === i + 1
-  );
-}
-function isGameOver() {
-  return checkWin() || timerEl.textContent === "Time: 0s";
+  timerInt = createGameTimer(150, (s) => updateTimer(s), () => {
+    alert("Time up!");
+    render(); // Ensure board updates to show all rabbits when time is up
+  });
 }
 
 // === Instructions box ===
@@ -487,33 +389,6 @@ hideBtn.onclick = () => {
   instructionsBox.style.display = "none";
   instructionsPermanentlyHidden = true;
 };
-
-function updateInstructions(state) {
-  if (instructionsPermanentlyHidden) {
-    instructionsBox.style.display = "none";
-    return;
-  }
-  if (players[currentTurn] !== "H") {
-    instructionsBox.style.display = "none";
-    return;
-  }
-  instructionsBox.style.display = "block";
-  if (state === "play") {
-    instructionsContent.innerHTML = `<b>Your turn!</b><br>
-      <ul class="instructions-list">
-        <li>To <b>peek</b> at a rabbit, click it <b>twice</b> quickly.</li>
-        <li>To <b>swap columns</b>, click a rabbit, then another rabbit in a different column.</li>
-        <li>To <b>swap hats</b>, click a hat, then another hat.</li>
-      </ul>`;
-  } else if (state === "dove") {
-    instructionsContent.innerHTML = `<b>Dove phase</b><br>
-      <ul class="instructions-list">
-        <li>Either <b>click the dove twice</b> to indicate no move, or <b>move the dove</b> by clicking it and then the target column.</li>
-      </ul>`;
-  } else {
-    instructionsContent.innerHTML = "";
-  }
-}
 
 // === Persistent stats storage ===
 const STATS_KEY = "magicRabbitStats";
@@ -535,43 +410,6 @@ function recordGameStats(numPlayers, delta, doveMoves) {
   stats[numPlayers][delta].count++;
   stats[numPlayers][delta].dove += doveMoves;
   saveStats(stats);
-}
-
-function renderStatsTable() {
-  const stats = loadStats();
-  let html = '<table class="stats-table"><thead><tr><th>Players</th>';
-  // Find all deltas used, but group all >20 into one column
-  const allDeltas = new Set();
-  let hasOver20 = false;
-  for (const n of [1,2,3,4]) {
-    if (stats[n]) for (const d in stats[n]) {
-      const numD = Number(d);
-      if (numD > 20) hasOver20 = true;
-      else allDeltas.add(numD);
-    }
-  }
-  const deltas = Array.from(allDeltas).sort((a,b)=>a-b);
-  for (const d of deltas) html += `<th>Δ${d}</th>`;
-  if (hasOver20) html += `<th>Δ&gt;20</th>`;
-  html += '</tr></thead><tbody>';
-  for (const n of [1,2,3,4]) {
-    html += `<tr><td>${n}</td>`;
-    for (const d of deltas) {
-      let cell = stats[n]?.[d]?.count || 0;
-      html += `<td>${cell}</td>`;
-    }
-    // Sum all deltas > 20
-    if (hasOver20) {
-      let over20 = 0;
-      for (const d in stats[n]) {
-        if (Number(d) > 20) over20 += stats[n][d].count;
-      }
-      html += `<td>${over20}</td>`;
-    }
-    html += '</tr>';
-  }
-  html += '</tbody></table>';
-  return html;
 }
 
 // === Multi-run AI blitz ===
@@ -601,18 +439,21 @@ function showMultiRunPrompt() {
 }
 
 function startMultiRun() {
-  winEl.classList.add('hidden');
+  hideWinOverlay();
+  multiRunActive = false; // Reset before starting new multi-run sequence
   init(multiRunParams.aiCnt, true);
 }
 
 document.querySelector("#resetBtn").onclick = () => {
   multiRunTarget = 0;
   multiRunParams = null;
+  multiRunActive = false;
   showSetupScreen();
 };
 document.querySelector("#playAgainBtn").onclick = () => {
   multiRunTarget = 0;
   multiRunParams = null;
+  multiRunActive = false;
   showSetupScreen();
 };
 init();

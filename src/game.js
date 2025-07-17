@@ -57,22 +57,57 @@ export class Game {
     }
     this.minTotalMoves = minMoves(r, h);
   }
-  swapPiles(a, b) {
-    if (this.piles[a].hasDove || this.piles[b].hasDove) return;
-    [this.piles[a], this.piles[b]] = [this.piles[b], this.piles[a]];
+  // Game state mutation methods
+  swapHats(i1, i2) {
+    // Swap hats between piles i1 and i2
+    const tmp = this.piles[i1].hatNum;
+    this.piles[i1].hatNum = this.piles[i2].hatNum;
+    this.piles[i2].hatNum = tmp;
   }
-  swapHats(a, b) {
-    if (this.piles[a].hasDove || this.piles[b].hasDove) return;
-    [this.piles[a].hatNum, this.piles[b].hatNum] = [
-      this.piles[b].hatNum,
-      this.piles[a].hatNum,
-    ];
+
+  swapPiles(i1, i2) {
+    // Swap entire piles (rabbit, hat, dove)
+    const tmp = this.piles[i1];
+    this.piles[i1] = this.piles[i2];
+    this.piles[i2] = tmp;
   }
+
   moveDove(from, to) {
-    if (this.piles[from].hasDove && !this.piles[to].hasDove) {
-      this.piles[from].hasDove = false;
-      this.piles[to].hasDove = true;
-    }
+    // Move dove from pile 'from' to pile 'to'
+    if (!this.piles[from].hasDove || this.piles[to].hasDove) return false;
+    this.piles[from].hasDove = false;
+    this.piles[to].hasDove = true;
+    return true;
+  }
+
+  peekRabbit(idx) {
+    // Return rabbit number for pile idx
+    return this.piles[idx].rabbitNum;
   }
 }
+
+// Add game state helpers for MVC separation
+export function checkWin(game) {
+  if (!game || !game.piles) return false;
+  return game.piles.every((p, i) => p.rabbitNum === i + 1 && p.hatNum === i + 1);
+}
+
+export function isGameOver(game, timerValue) {
+  return checkWin(game) || timerValue === 0;
+}
+
+// Timer logic for game
+export function createGameTimer(duration, onTick, onEnd) {
+  let s = duration;
+  let timerInt = setInterval(() => {
+    s--;
+    onTick(s);
+    if (s <= 0) {
+      clearInterval(timerInt);
+      onEnd();
+    }
+  }, 1000);
+  return timerInt;
+}
+
 export const shuffle = (a) => a.sort(() => Math.random() - 0.5);
