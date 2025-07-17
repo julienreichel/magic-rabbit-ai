@@ -20,9 +20,9 @@ class GameController {
     this.totalHuman = 0;
     this.humanTurns = 0;
     this.turnHistory = [];
-    this.selHat = null;
-    this.selRab = null;
-    this.selDove = null;
+    this.selectedHat = null;
+    this.selectedRabbit = null;
+    this.selectedDove = null;
     this.doveTimer = null;
     this.hasPlayed = false;
     this.statsRecorded = false;
@@ -153,27 +153,27 @@ function checkAndHandleWin() {
 
 
 function handleHumanHatSelection(idx, dom) {
-  if (controller.selHat === null) {
-    controller.selHat = idx;
+  if (controller.selectedHat === null) {
+    controller.selectedHat = idx;
     highlightHat(idx, dom);
     return;
   }
-  if (controller.selHat !== idx) {
+  if (controller.selectedHat !== idx) {
     swapHatAction(idx);
     clearAllHighlights();
-    controller.selHat = null;
+    controller.selectedHat = null;
     return;
   }
   // If clicked same hat, just clear selection
   clearAllHighlights();
-  controller.selHat = null;
+  controller.selectedHat = null;
 }
 
 function handleHumanHatGuards(idx, dom) {
   if (controller.lock || controller.players[controller.currentTurn] !== "H") return true;
   if (isGameOver()) return true;
   if (controller.game.piles[idx].hasDove) return true;
-  if (controller.selDove !== null) {
+  if (controller.selectedDove !== null) {
     moveDoveTo(idx);
     return true;
   }
@@ -187,12 +187,12 @@ function humanHat(idx, dom) {
 }
 
 function swapHatAction(idx) {
-  controller.game.swapHats(controller.selHat, idx);
-  controller.turnHistory.push({ player: "H", action: { type: "swapHat", i1: controller.selHat, i2: idx } });
+  controller.game.swapHats(controller.selectedHat, idx);
+  controller.turnHistory.push({ player: "H", action: { type: "swapHat", i1: controller.selectedHat, i2: idx } });
   controller.hasPlayed = true;
   render();
   controller.lock = true;
-  flash([piece(controller.selHat, ".hat"), piece(idx, ".hat")], () => {
+  flash([piece(controller.selectedHat, ".hat"), piece(idx, ".hat")], () => {
     controller.lock = false;
     updateInstructions("dove", controller.players, controller.currentTurn);
     startDoveAutoPass();
@@ -203,36 +203,36 @@ function humanRabbit(idx, dom) {
   if (controller.lock || controller.players[controller.currentTurn] !== "H") return;
   if (isGameOver()) return;
   if (controller.game.piles[idx].hasDove) return;
-  if (controller.selDove !== null) {
+  if (controller.selectedDove !== null) {
     moveDoveTo(idx);
     return;
   }
   if (controller.hasPlayed) return;
-  if (controller.selRab === null) {
-    controller.selRab = idx;
+  if (controller.selectedRabbit === null) {
+    controller.selectedRabbit = idx;
     highlightRabbit(idx, dom);
     return;
   }
-  if (controller.selRab !== idx) {
+  if (controller.selectedRabbit !== idx) {
     swapRabbitAction(idx);
     clearAllHighlights();
-    controller.selRab = null;
+    controller.selectedRabbit = null;
     return;
   }
   // If clicked same rabbit, just clear selection
   clearAllHighlights();
-  controller.selRab = null;
+  controller.selectedRabbit = null;
 }
 
 function swapRabbitAction(idx) {
-  controller.game.swapPiles(controller.selRab, idx);
-  controller.turnHistory.push({ player: "H", action: { type: "swapPile", i1: controller.selRab, i2: idx } });
+  controller.game.swapPiles(controller.selectedRabbit, idx);
+  controller.turnHistory.push({ player: "H", action: { type: "swapPile", i1: controller.selectedRabbit, i2: idx } });
   controller.hasPlayed = true;
   render();
   controller.lock = true;
   flash([
-    piece(controller.selRab, ".hat"),
-    piece(controller.selRab, ".rabbit"),
+    piece(controller.selectedRabbit, ".hat"),
+    piece(controller.selectedRabbit, ".rabbit"),
     piece(idx, ".hat"),
     piece(idx, ".rabbit")
   ], () => {
@@ -244,7 +244,7 @@ function swapRabbitAction(idx) {
 
 function reveal(el) {
   if (controller.lock || controller.players[controller.currentTurn] !== "H") return;
-  if (controller.selDove !== null) return;
+  if (controller.selectedDove !== null) return;
   if (controller.hasPlayed) return;
   if (isGameOver()) return;
   el.classList.add("revealed");
@@ -262,12 +262,12 @@ function humanDove(idx, dom) {
   if (controller.lock || controller.players[controller.currentTurn] !== "H") return;
   if (isGameOver()) return;
   if (!controller.hasPlayed) return;
-  if (controller.selDove === null) {
-    controller.selDove = idx;
+  if (controller.selectedDove === null) {
+    controller.selectedDove = idx;
     highlightDove(idx, dom);
     return;
   }
-  if (controller.selDove === idx) {
+  if (controller.selectedDove === idx) {
     cancelDove();
     endTurn();
     return;
@@ -279,8 +279,8 @@ function moveDoveTo(target) {
   if (isGameOver()) return;
   if (controller.game.piles[target].hasDove) return;
   if (!controller.hasPlayed) return;
-  controller.game.moveDove(controller.selDove, target);
-  controller.turnHistory.push({ player: "H", action: { type: "moveDove", from: controller.selDove, to: target } });
+  controller.game.moveDove(controller.selectedDove, target);
+  controller.turnHistory.push({ player: "H", action: { type: "moveDove", from: controller.selectedDove, to: target } });
   cancelDove();
   render();
   endTurn();
@@ -289,7 +289,7 @@ function moveDoveTo(target) {
 function startDoveAutoPass() {
   clearTimeout(controller.doveTimer);
   controller.doveTimer = setTimeout(() => {
-    if (controller.players[controller.currentTurn] === "H" && controller.selDove === null) {
+    if (controller.players[controller.currentTurn] === "H" && controller.selectedDove === null) {
       endTurn();
     }
   }, 3000);
@@ -299,7 +299,7 @@ function cancelDove() {
   clearTimeout(controller.doveTimer);
   controller.doveTimer = null;
   clearAllHighlights();
-  controller.selDove = null;
+  controller.selectedDove = null;
 }
 
 // === AI turn ===
@@ -371,9 +371,9 @@ function updateHumanStats() {
 }
 
 function resetTurnState() {
-  controller.selHat = null;
-  controller.selRab = null;
-  controller.selDove = null;
+  controller.selectedHat = null;
+  controller.selectedRabbit = null;
+  controller.selectedDove = null;
   controller.hasPlayed = false;
   controller.doveTimer = null;
   if (Array.isArray(controller.players) && controller.players.length > 0) {
